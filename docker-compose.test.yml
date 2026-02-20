@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  app:
+    environment:
+      MIX_ENV: test
+    command: >
+      sh -c "
+        mix ecto.create &&
+        mix ecto.migrate &&
+        mix test --color
+      "
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    environment:
+      POSTGRES_DB: okovita_test

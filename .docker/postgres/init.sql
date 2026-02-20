@@ -1,0 +1,5 @@
+ALTER ROLE okovita_user CREATEDB;
+
+\c okovita_dev
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
