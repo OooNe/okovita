@@ -38,3 +38,6 @@ npm-debug.log
 # Docker environment
 .env
 .docker/postgres/data/
+
+.agent/
+.idea/

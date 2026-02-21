@@ -62,7 +62,9 @@ config :okovita, :field_types, %{
   "enum" => Okovita.FieldTypes.Types.Enum,
   "date" => Okovita.FieldTypes.Types.Date,
   "datetime" => Okovita.FieldTypes.Types.Datetime,
-  "relation" => Okovita.FieldTypes.Types.Relation
+  "relation" => Okovita.FieldTypes.Types.Relation,
+  "image" => Okovita.FieldTypes.Types.Image,
+  "image_gallery" => Okovita.FieldTypes.Types.ImageGallery
 }
 
 # Global sync pipelines — applied to all string values in entry data
@@ -76,6 +78,14 @@ config :okovita, :transports, [
 config :okovita, Oban,
   repo: Okovita.Repo,
   queues: [pipeline: 10]
+
+# ExAws Configuration
+config :ex_aws,
+  json_codec: Jason,
+  access_key_id: [{:system, "AWS_ACCESS_KEY_ID"}, :instance_role],
+  secret_access_key: [{:system, "AWS_SECRET_ACCESS_KEY"}, :instance_role]
+
+config :okovita, :s3_bucket, System.get_env("S3_BUCKET_NAME", "okovita-content")
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

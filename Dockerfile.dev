@@ -1,6 +1,6 @@
 FROM elixir:1.16-alpine
 
-RUN apk add --no-cache build-base git nodejs npm inotify-tools postgresql-client
+RUN apk add --no-cache build-base git nodejs npm inotify-tools postgresql-client curl aws-cli
 
 WORKDIR /app
 

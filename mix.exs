@@ -53,6 +53,12 @@ defmodule Okovita.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
 
+      # AWS / S3
+      {:ex_aws, "~> 2.1"},
+      {:ex_aws_s3, "~> 2.0"},
+      {:hackney, "~> 1.9"},
+      {:sweet_xml, "~> 0.7"},
+
       # Multi-tenancy & auth
       {:bcrypt_elixir, "~> 3.0"},
       {:oban, "~> 2.17"},

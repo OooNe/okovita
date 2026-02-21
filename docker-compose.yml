@@ -25,6 +25,8 @@ services:
         mix deps.get &&
         mix ecto.create &&
         mix ecto.migrate &&
+        curl -X POST http://localstack:4566/_localstack/state/reset &&
+        AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url=http://localstack:4566 s3 mb s3://okovita-content &&
         mix phx.server
       "
 

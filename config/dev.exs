@@ -65,3 +65,16 @@ config :phoenix, :stacktrace_depth, 20
 
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# ExAws Development Config for Localstack
+config :ex_aws,
+  debug_requests: true,
+  access_key_id: "test",
+  secret_access_key: "test",
+  region: "us-east-1"
+
+config :ex_aws, :s3,
+  scheme: "http://",
+  host: System.get_env("S3_HOST", "localstack"),
+  port: 4566,
+  region: "us-east-1"

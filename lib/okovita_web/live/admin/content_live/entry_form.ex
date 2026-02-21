@@ -10,16 +10,20 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     entry = if model, do: Content.get_entry(id, prefix)
 
     if model && entry do
-      {:ok,
-       assign(socket,
-         model: model,
-         entry: entry,
-         data: entry.data,
-         slug: entry.slug,
-         prefix: prefix,
-         errors: %{},
-         relation_options: load_relation_options(model, prefix)
-       )}
+      socket =
+        socket
+        |> assign(
+          model: model,
+          entry: entry,
+          data: entry.data,
+          slug: entry.slug,
+          prefix: prefix,
+          errors: %{},
+          relation_options: load_relation_options(model, prefix)
+        )
+        |> allow_image_uploads(model)
+
+      {:ok, socket}
     else
       {:ok, push_navigate(socket, to: "/admin/models")}
     end
@@ -30,16 +34,20 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     model = Content.get_model_by_slug(slug, prefix)
 
     if model do
-      {:ok,
-       assign(socket,
-         model: model,
-         entry: nil,
-         data: %{},
-         slug: "",
-         prefix: prefix,
-         errors: %{},
-         relation_options: load_relation_options(model, prefix)
-       )}
+      socket =
+        socket
+        |> assign(
+          model: model,
+          entry: nil,
+          data: %{},
+          slug: "",
+          prefix: prefix,
+          errors: %{},
+          relation_options: load_relation_options(model, prefix)
+        )
+        |> allow_image_uploads(model)
+
+      {:ok, socket}
     else
       {:ok, push_navigate(socket, to: "/admin/models")}
     end
@@ -50,11 +58,81 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     model = socket.assigns.model
     slug = params["slug"] || ""
 
-    # Collect field values from params
+    # Process uploads for image fields
+    upload_data =
+      Enum.reduce(model.schema_definition || %{}, %{}, fn {field_name, def}, acc ->
+        if def["field_type"] in ["image", "image_gallery"] do
+          uploaded_urls =
+            consume_uploaded_entries(socket, String.to_atom(field_name), fn %{path: path},
+                                                                            entry ->
+              file_ext = Path.extname(entry.client_name)
+              file_name = "#{Ecto.UUID.generate()}#{file_ext}"
+              bucket = Application.get_env(:okovita, :s3_bucket, "okovita-content")
+
+              file_binary = File.read!(path)
+
+              # Upload to S3
+              ExAws.S3.put_object(bucket, file_name, file_binary,
+                content_type: entry.client_type,
+                acl: :public_read
+              )
+              |> ExAws.request!()
+
+              # Generate the public URL (Note: in production this might be a CDN URL)
+              ex_aws_config = ExAws.Config.new(:s3)
+              scheme = ex_aws_config[:scheme] || "https://"
+
+              # For localstack, the public URL still needs to be localhost so the browser can reach it.
+              # The internal ex_aws host is used for server-to-server communication (e.g., "localstack").
+              public_host =
+                if Application.get_env(:okovita, :env) == :dev ||
+                     System.get_env("MIX_ENV") == "dev",
+                   do: "localhost",
+                   else: ex_aws_config[:host] || "s3.amazonaws.com"
+
+              port = if ex_aws_config[:port], do: ":#{ex_aws_config[:port]}", else: ""
+
+              url = "#{scheme}#{public_host}#{port}/#{bucket}/#{file_name}"
+              {:ok, url}
+            end)
+
+          case def["field_type"] do
+            "image" ->
+              if length(uploaded_urls) > 0 do
+                Map.put(acc, field_name, hd(uploaded_urls))
+              else
+                # Keep the existing value if no new file is uploaded
+                existing = Map.get(socket.assigns.data, field_name)
+                if existing && existing != "", do: Map.put(acc, field_name, existing), else: acc
+              end
+
+            "image_gallery" ->
+              # Existing URLs might come from params due to hidden inputs, or from assigns data.
+              # We prioritize params (which represents the grid state after removals and sorting)
+              existing_from_params = Map.get(params, "#{field_name}__existing", [])
+
+              all_urls = existing_from_params ++ uploaded_urls
+
+              mapped_urls =
+                all_urls
+                |> Enum.with_index()
+                |> Enum.map(fn {url, i} -> %{"image_url" => url, "index" => i} end)
+
+              Map.put(acc, field_name, mapped_urls)
+          end
+        else
+          acc
+        end
+      end)
+
+    # Collect field values from params and merge uploaded URLs
     data =
       model.schema_definition
-      |> Enum.into(%{}, fn {field_name, _def} ->
-        {field_name, Map.get(params, field_name, "")}
+      |> Enum.into(%{}, fn {field_name, def} ->
+        # Overwrite param values with uploaded URLs if they exist for image fields
+        # Fallback for empty image gallery in params
+        fallback = if def["field_type"] == "image_gallery", do: [], else: ""
+        {field_name, Map.get(upload_data, field_name, Map.get(params, field_name, fallback))}
       end)
 
     result =
@@ -82,6 +160,79 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     end
   end
 
+  def handle_event("remove-gallery-image", %{"name" => name, "index" => index_str}, socket) do
+    index = String.to_integer(index_str)
+
+    data = socket.assigns.data
+    current_images = Map.get(data, name, []) || []
+
+    updated_images =
+      current_images
+      |> Enum.with_index()
+      |> Enum.map(fn
+        {url, idx} when is_binary(url) -> %{"image_url" => url, "index" => idx}
+        {map, _} when is_map(map) -> map
+      end)
+      |> List.delete_at(index)
+      |> Enum.sort_by(&(&1["index"] || 0))
+      |> Enum.with_index()
+      |> Enum.map(fn {item, i} -> Map.put(item, "index", i) end)
+
+    updated_data = Map.put(data, name, updated_images)
+
+    # We need to explicitly trigger an update to the struct/map for the form to re-render.
+    {:noreply, assign(socket, data: updated_data)}
+  end
+
+  def handle_event("cancel-upload", %{"ref" => ref, "name" => name}, socket) do
+    {:noreply, cancel_upload(socket, String.to_atom(name), ref)}
+  end
+
+  def handle_event("validate", params, socket) do
+    # During validate, preserve the ordered state of gallery inputs to support SortableJS drag & drop dragging re-renders
+    model = socket.assigns.model
+    data = socket.assigns.data
+
+    updated_data =
+      Enum.reduce(model.schema_definition || %{}, data, fn {field_name, def}, acc_data ->
+        if def["field_type"] == "image_gallery" do
+          sorted_urls_from_dom = Map.get(params, "#{field_name}__existing", [])
+
+          mapped_urls =
+            sorted_urls_from_dom
+            |> Enum.with_index()
+            |> Enum.map(fn {url, i} -> %{"image_url" => url, "index" => i} end)
+
+          Map.put(acc_data, field_name, mapped_urls)
+        else
+          acc_data
+        end
+      end)
+
+    {:noreply, assign(socket, data: updated_data)}
+  end
+
+  defp allow_image_uploads(socket, model) do
+    Enum.reduce(model.schema_definition || %{}, socket, fn {field_name, def}, acc_socket ->
+      case def["field_type"] do
+        "image" ->
+          allow_upload(acc_socket, String.to_atom(field_name),
+            accept: ~w(.jpg .jpeg .png .gif .webp),
+            max_entries: 1
+          )
+
+        "image_gallery" ->
+          allow_upload(acc_socket, String.to_atom(field_name),
+            accept: ~w(.jpg .jpeg .png .gif .webp),
+            max_entries: 20
+          )
+
+        _ ->
+          acc_socket
+      end
+    end)
+  end
+
   def render(assigns) do
     ~H"""
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-8">
@@ -89,7 +240,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
         <%= if @entry, do: "Edit Entry", else: "New Entry" %> — <span class="text-indigo-600"><%= @model.name %></span>
       </h1>
 
-      <form phx-submit="save" class="space-y-6">
+      <form phx-submit="save" phx-change="validate" class="space-y-6">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
           <input type="text" name="slug" value={@slug} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
@@ -101,7 +252,11 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
               <%= field_def["label"] %>
               <span :if={field_def["required"]} class="text-red-500">*</span>
             </label>
-            <%= render_field_input(field_name, field_def, @data, @relation_options) %>
+            <%= if field_def["field_type"] in ["image", "image_gallery"] do %>
+              <%= render_field_input(field_name, field_def, @data, @uploads) %>
+            <% else %>
+              <%= render_field_input(field_name, field_def, @data, @relation_options) %>
+            <% end %>
 
             <%= for err <- (@errors[String.to_atom(field_name)] || []) do %>
               <p class="mt-2 text-sm text-red-600"><%= err %></p>
@@ -114,6 +269,134 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries"} class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Cancel</a>
         </div>
       </form>
+    </div>
+    """
+  end
+
+  defp render_field_input(name, %{"field_type" => "image"}, data, uploads) do
+    # For the UI, we only need name and value. We rely on the `@uploads` assign explicitly passed now.
+    assigns = %{name: name, value: Map.get(data, name, ""), uploads: uploads}
+
+    ~H"""
+    <div class="mt-2 flex flex-col space-y-4" phx-drop-target={@uploads[String.to_atom(@name)].ref}>
+      <!-- Existing Image Preview -->
+      <%= if @value != "" do %>
+        <div class="relative w-32 h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+          <img src={@value} alt="Preview" class="object-cover w-full h-full" />
+        </div>
+      <% end %>
+
+      <!-- LiveUpload Input -->
+      <div class="flex items-center justify-center w-full">
+        <label for={@uploads[String.to_atom(@name)].ref} class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+          <div class="flex flex-col items-center justify-center pt-5 pb-6">
+            <svg class="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+            </svg>
+            <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+            <p class="text-xs text-gray-500">SVG, PNG, JPG or WEBP</p>
+          </div>
+          <.live_file_input upload={@uploads[String.to_atom(@name)]} class="hidden" />
+        </label>
+      </div>
+
+      <!-- Upload Entries Preview & Progress -->
+      <%= for entry <- @uploads[String.to_atom(@name)].entries do %>
+        <div class="flex items-center space-x-4 p-4 mt-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div class="relative w-16 h-16 rounded overflow-hidden">
+            <.live_img_preview entry={entry} class="object-cover w-full h-full" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate"><%= entry.client_name %></p>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+              <div class="bg-indigo-600 h-2.5 rounded-full" style={"width: #{entry.progress}%"}></div>
+            </div>
+          </div>
+          <button type="button" phx-click="cancel-upload" phx-value-ref={entry.ref} phx-value-name={@name} class="text-gray-400 hover:text-red-500 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <%= for err <- upload_errors(@uploads[String.to_atom(@name)], entry) do %>
+          <p class="mt-1 text-sm text-red-600"><%= error_to_string(err) %></p>
+        <% end %>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp render_field_input(name, %{"field_type" => "image_gallery"}, data, uploads) do
+    # For the UI, we only need name and value. We rely on the `@uploads` assign explicitly passed now.
+    raw_value = Map.get(data, name, []) || []
+
+    # Normalize legacy string-only arrays into our object format for safe rendering
+    normalized_value =
+      raw_value
+      |> Enum.with_index()
+      |> Enum.map(fn
+        {url, idx} when is_binary(url) -> %{"image_url" => url, "index" => idx}
+        {map, _idx} when is_map(map) -> map
+      end)
+      |> Enum.sort_by(&(&1["index"] || 0))
+
+    assigns = %{name: name, value: normalized_value, uploads: uploads}
+
+    ~H"""
+    <div class="mt-2 flex flex-col space-y-4" phx-drop-target={@uploads[String.to_atom(@name)].ref}>
+      <!-- Existing Images Gallery -->
+      <%= if length(@value) > 0 do %>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" phx-hook="Sortable" id={"sortable-#{@name}"}>
+          <%= for item <- Enum.sort_by(@value, & &1["index"]) do %>
+            <div class="relative group w-full h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-move">
+              <img src={item["image_url"]} alt="Gallery Image" class="object-cover w-full h-full pointer-events-none" />
+              <!-- Hidden input to keep existing URLs in form data -->
+              <input type="hidden" name={"#{@name}__existing[]"} value={item["image_url"]} />
+              <button type="button" phx-click="remove-gallery-image" phx-value-name={@name} phx-value-index={item["index"]} class="absolute top-2 right-2 bg-white bg-opacity-75 rounded-full p-1 text-gray-700 hover:text-red-500 hover:bg-opacity-100 transition-all opacity-0 group-hover:opacity-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <!-- LiveUpload Input -->
+      <div class="flex items-center justify-center w-full">
+        <label for={@uploads[String.to_atom(@name)].ref} class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+          <div class="flex flex-col items-center justify-center pt-5 pb-6">
+            <svg class="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+            </svg>
+            <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+            <p class="text-xs text-gray-500">Add up to 20 images</p>
+          </div>
+          <.live_file_input upload={@uploads[String.to_atom(@name)]} class="hidden" />
+        </label>
+      </div>
+
+      <!-- Upload Entries Preview & Progress -->
+      <%= if length(@uploads[String.to_atom(@name)].entries) > 0 do %>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+          <%= for entry <- @uploads[String.to_atom(@name)].entries do %>
+            <div class="relative w-full h-32 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+              <.live_img_preview entry={entry} class="object-cover w-full h-full" />
+              <div class="absolute bottom-0 left-0 right-0 bg-white bg-opacity-90 p-2">
+                <div class="w-full bg-gray-200 rounded-full h-1.5">
+                  <div class="bg-indigo-600 h-1.5 rounded-full" style={"width: #{entry.progress}%"}></div>
+                </div>
+              </div>
+              <button type="button" phx-click="cancel-upload" phx-value-ref={entry.ref} phx-value-name={@name} class="absolute top-2 right-2 bg-white bg-opacity-75 rounded-full p-1 text-gray-700 hover:text-red-500 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%= for entry <- @uploads[String.to_atom(@name)].entries do %>
+        <%= for err <- upload_errors(@uploads[String.to_atom(@name)], entry) do %>
+          <p class="mt-1 text-sm text-red-600 truncate"><%= entry.client_name %>: <%= error_to_string(err) %></p>
+        <% end %>
+      <% end %>
     </div>
     """
   end
@@ -202,6 +485,10 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     <input type="text" name={@name} value={@value} class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
     """
   end
+
+  defp error_to_string(:too_large), do: "File is too large"
+  defp error_to_string(:too_many_files), do: "You have selected too many files"
+  defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
 
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
