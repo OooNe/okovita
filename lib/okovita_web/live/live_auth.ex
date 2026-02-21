@@ -14,7 +14,18 @@ defmodule OkovitaWeb.LiveAuth do
   def on_mount(:require_super_admin, _params, session, socket) do
     case load_admin(session) do
       %{role: :super_admin} = admin ->
-        {:cont, assign(socket, current_admin: admin)}
+        {:cont,
+         socket
+         |> assign(current_admin: admin)
+         |> assign(
+           current_tenant: %Okovita.Tenants.Tenant{
+             id: nil,
+             name: "SuperAdmin Global",
+             slug: "system"
+           }
+         )
+         |> assign(layout_tenants: Okovita.Tenants.list_tenants())
+         |> assign(layout_models: [])}
 
       _ ->
         {:halt, redirect(socket, to: "/admin/login")}
@@ -82,6 +93,44 @@ defmodule OkovitaWeb.LiveAuth do
 
       admin ->
         {:cont, assign(socket, current_admin: admin)}
+    end
+  end
+
+  def on_mount(:assign_tenant_layout_data, params, _session, socket) do
+    if socket.assigns[:current_admin] && socket.assigns[:current_tenant] do
+      layout_tenants =
+        if socket.assigns.current_admin.role == :super_admin do
+          Okovita.Tenants.list_tenants()
+        else
+          [socket.assigns.current_tenant]
+        end
+
+      layout_models = Okovita.Content.list_models(socket.assigns.tenant_prefix)
+
+      # Determine active navigation section based on route params
+      active_nav =
+        cond do
+          params["id"] && String.contains?(socket.view |> to_string(), "ModelBuilder") ->
+            "schema_#{params["id"]}"
+
+          params["model_slug"] ->
+            "entity_#{params["model_slug"]}"
+
+          String.contains?(socket.view |> to_string(), "ApiDocs") ->
+            :api_docs
+
+          true ->
+            if socket.assigns.current_tenant.id == nil, do: :global, else: :none
+        end
+
+      {:cont,
+       assign(socket,
+         layout_tenants: layout_tenants,
+         layout_models: layout_models,
+         active_nav: active_nav
+       )}
+    else
+      {:cont, socket}
     end
   end
 

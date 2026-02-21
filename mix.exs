@@ -45,6 +45,7 @@ defmodule Okovita.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:phoenix_live_view, "~> 1.0"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
@@ -73,9 +74,10 @@ defmodule Okovita.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.setup": ["esbuild.install --if-missing"],
-      "assets.build": ["compile", "esbuild okovita"],
+      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.build": ["tailwind okovita", "esbuild okovita"],
       "assets.deploy": [
+        "tailwind okovita --minify",
         "esbuild okovita --minify",
         "phx.digest"
       ],

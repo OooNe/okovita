@@ -2,8 +2,6 @@ defmodule OkovitaWeb.Admin.ContentLive.ApiDocs do
   @moduledoc "Renders Swagger UI for the dynamic OpenAPI schema."
   use OkovitaWeb, :live_view
 
-  on_mount {OkovitaWeb.LiveAuth, :require_tenant_admin}
-
   def mount(_params, _session, socket) do
     tenant_slug = socket.assigns.current_tenant.slug
     spec_url = "/admin/tenants/#{tenant_slug}/openapi.json"
@@ -13,10 +11,10 @@ defmodule OkovitaWeb.Admin.ContentLive.ApiDocs do
 
   def render(assigns) do
     ~H"""
-    <div style="padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1>API Explorer</h1>
-        <a href={"/admin/tenants/#{@current_tenant.slug}/models"} style="color: #4F46E5; text-decoration: none;">← Back to Models</a>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">API Explorer</h1>
+        <a href={"/admin/tenants/#{@current_tenant.slug}/models"} class="text-indigo-600 hover:text-indigo-900 font-medium">← Back to Models</a>
       </div>
 
       <div id="swagger-ui-container" phx-update="ignore">

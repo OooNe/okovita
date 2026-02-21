@@ -45,24 +45,38 @@ defmodule OkovitaWeb.Router do
     get "/", SessionController, :dashboard
 
     # Super admin routes
-    live "/tenants", TenantLive.Index
+    live_session :admin,
+      layout: {OkovitaWeb.Layouts, :tenant},
+      on_mount: [{OkovitaWeb.LiveAuth, :require_super_admin}] do
+      live "/tenants", TenantLive.Index
+    end
 
     # Tenant context routes (accessible by Super Admin and Tenant Admin)
+    live_session :tenant,
+      layout: {OkovitaWeb.Layouts, :tenant},
+      on_mount: [
+        {OkovitaWeb.LiveAuth, :require_tenant_admin},
+        {OkovitaWeb.LiveAuth, :assign_tenant_layout_data}
+      ] do
+      scope "/tenants/:tenant_slug" do
+        live "/api-keys", TenantLive.ApiKeys
+        live "/models", ContentLive.ModelList
+        live "/models/new", ContentLive.ModelBuilder
+        live "/models/:id/edit", ContentLive.ModelBuilder
+        live "/models/:model_slug/entries", ContentLive.EntryList
+        live "/models/:model_slug/entries/new", ContentLive.EntryForm
+        live "/models/:model_slug/entries/:id/edit", ContentLive.EntryForm
+
+        # Timeline
+        live "/timeline/:entity_type/:entity_id", TimelineLive
+
+        # OpenAPI integration
+        live "/api-docs", ContentLive.ApiDocs
+      end
+    end
+
     scope "/tenants/:tenant_slug" do
-      live "/api-keys", TenantLive.ApiKeys
-      live "/models", ContentLive.ModelList
-      live "/models/new", ContentLive.ModelBuilder
-      live "/models/:id/edit", ContentLive.ModelBuilder
-      live "/models/:model_slug/entries", ContentLive.EntryList
-      live "/models/:model_slug/entries/new", ContentLive.EntryForm
-      live "/models/:model_slug/entries/:id/edit", ContentLive.EntryForm
-
-      # Timeline
-      live "/timeline/:entity_type/:entity_id", TimelineLive
-
-      # OpenAPI integration
       get "/openapi.json", OpenAPIController, :show
-      live "/api-docs", ContentLive.ApiDocs
     end
   end
 

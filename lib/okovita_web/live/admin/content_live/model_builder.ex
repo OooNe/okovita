@@ -5,8 +5,6 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
   alias Okovita.Content
   alias Okovita.FieldTypes.Registry
 
-  on_mount {OkovitaWeb.LiveAuth, :require_tenant_admin}
-
   def mount(%{"id" => id}, _session, socket) do
     prefix = socket.assigns.tenant_prefix
     model = Content.get_model(id, prefix)
@@ -139,94 +137,114 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
   @spec render(any()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
-    <div style="max-width: 1000px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-      <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 24px; color: #111827;">
-        <%= if @model, do: "Edit Model", else: "New Model" %>
-      </h1>
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-8 my-8">
+      <div class="border-b border-gray-200 pb-5 mb-8">
+        <h1 class="text-2xl font-bold leading-tight text-gray-900">
+          <%= if @model, do: "Edit Model", else: "New Model" %>
+        </h1>
+      </div>
 
-      <form phx-change="update-form" phx-submit="save" id="model-form" style="display: flex; flex-direction: column;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px;">
+      <form phx-change="update-form" phx-submit="save" id="model-form" class="space-y-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8 border-b border-gray-200">
           <div>
-            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">Name <span style="color: #EF4444;">*</span></label>
-            <input type="text" name="name" value={@form_data[:name]} required style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box;" />
+            <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+            <input type="text" name="name" value={@form_data[:name]} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
           </div>
           <div>
-            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">Slug <span style="color: #EF4444;">*</span></label>
-            <input type="text" name="slug" value={@form_data[:slug]} required style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box;" />
+            <label class="block text-sm font-medium text-gray-700 mb-1">Slug <span class="text-red-500">*</span></label>
+            <input type="text" name="slug" value={@form_data[:slug]} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono" />
           </div>
         </div>
 
-        <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #1F2937;">Fields</h2>
-
-        <%= for field <- @fields do %>
-          <div style="border: 1px solid #E5E7EB; padding: 16px; border-radius: 8px; margin-bottom: 12px; background: #F9FAFB;">
-            <div style="display: grid; grid-template-columns: 1.5fr 1.5fr 1fr 1fr auto auto; gap: 12px; align-items: flex-end;">
-
-              <div>
-                <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: #4B5563;">Field Key <span style="color: #EF4444;">*</span></label>
-                <input type="text" name={"fields[#{field["id"]}][key]"} value={field["key"]}
-                       phx-blur="update-field" phx-value-id={field["id"]} phx-value-attr="key"
-                       placeholder="e.g. title_image" required pattern="[a-zA-Z0-9_-]+"
-                       style="width: 100%; padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px;" />
-              </div>
-
-              <div>
-                <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: #4B5563;">Label <span style="color: #EF4444;">*</span></label>
-                <input type="text" name={"fields[#{field["id"]}][label]"} value={field["label"]}
-                       phx-blur="update-field" phx-value-id={field["id"]} phx-value-attr="label"
-                       placeholder="Title Image" required
-                       style="width: 100%; padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box; font-size: 14px;" />
-              </div>
-
-              <div>
-                <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: #4B5563;">Type</label>
-                <select name={"fields[#{field["id"]}][field_type]"}
-                        phx-change="update-field" phx-value-id={field["id"]} phx-value-attr="field_type"
-                        style="width: 100%; padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box; font-size: 14px; background: white;">
-                  <%= Phoenix.HTML.Form.options_for_select(@field_types, field["field_type"]) %>
-                </select>
-              </div>
-
-              <div style="width: 100%;">
-                <%= if field["field_type"] == "relation" do %>
-                  <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: #4B5563;">Target <span style="color: #EF4444;">*</span></label>
-                  <select name={"fields[#{field["id"]}][target_model]"} required
-                          phx-change="update-field" phx-value-id={field["id"]} phx-value-attr="target_model"
-                          style="width: 100%; padding: 6px 10px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box; font-size: 14px; background: white;">
-                    <option value="">-- Model --</option>
-                    <%= Phoenix.HTML.Form.options_for_select(Enum.map(@available_models, &{&1.name, &1.slug}), field["target_model"]) %>
-                  </select>
-                <% end %>
-              </div>
-
-              <div style="padding-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                <input type="checkbox" name={"fields[#{field["id"]}][required]"} checked={field["required"]} value="true"
-                       phx-click="update-field" phx-value-id={field["id"]} phx-value-attr="required"
-                       phx-value-value={to_string(!field["required"])} id={"req_#{field["id"]}"}
-                       style="width: 16px; height: 16px; accent-color: #4F46E5; cursor: pointer;" />
-                <label for={"req_#{field["id"]}"} style="font-size: 14px; font-weight: 500; color: #4B5563; cursor: pointer;">Required</label>
-              </div>
-
-              <div style="padding-bottom: 4px;">
-                <button type="button" phx-click="remove-field" phx-value-id={field["id"]} title="Remove field"
-                        style="padding: 6px 12px; background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;">
-                  ✕
-                </button>
-              </div>
-
-            </div>
+        <div>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">Fields</h2>
+            <button type="button" phx-click="add-field" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+              <svg class="-ml-1 mr-2 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+              </svg>
+              Add Field
+            </button>
           </div>
-        <% end %>
 
-        <div style="margin-bottom: 24px; margin-top: 8px;">
-          <button type="button" phx-click="add-field" style="padding: 8px 16px; background: #F3F4F6; color: #374151; border: 1px solid #D1D5DB; border-radius: 6px; cursor: pointer; font-weight: 500;">
-            + Add Field
-          </button>
+          <div class="space-y-4">
+            <%= for field <- @fields do %>
+              <div class="relative bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm">
+                <!-- Close Button -->
+                <div class="absolute top-4 right-4 text-gray-400 hover:text-red-500 cursor-pointer">
+                  <button type="button" phx-click="remove-field" phx-value-id={field["id"]} title="Remove field" class="rounded hover:bg-red-50 p-1">
+                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 align-bottom pr-8">
+                  <div class="col-span-1 lg:col-span-1 border-l-2 border-indigo-200 pl-4">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Field Key <span class="text-red-500">*</span></label>
+                    <input type="text" name={"fields[#{field["id"]}][key]"} value={field["key"]}
+                           phx-blur="update-field" phx-value-id={field["id"]} phx-value-attr="key"
+                           placeholder="e.g. title_image" required pattern="[a-zA-Z0-9_-]+"
+                           class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono bg-white" />
+                  </div>
+
+                  <div class="col-span-1 lg:col-span-1">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Label <span class="text-red-500">*</span></label>
+                    <input type="text" name={"fields[#{field["id"]}][label]"} value={field["label"]}
+                           phx-blur="update-field" phx-value-id={field["id"]} phx-value-attr="label"
+                           placeholder="Title Image" required
+                           class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white" />
+                  </div>
+
+                  <div class="col-span-1 lg:col-span-1">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Type</label>
+                    <select name={"fields[#{field["id"]}][field_type]"}
+                            phx-change="update-field" phx-value-id={field["id"]} phx-value-attr="field_type"
+                            class="block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm bg-white">
+                      <%= Phoenix.HTML.Form.options_for_select(@field_types, field["field_type"]) %>
+                    </select>
+                  </div>
+
+                  <div class="col-span-1 lg:col-span-1">
+                    <%= if field["field_type"] == "relation" do %>
+                      <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Target <span class="text-red-500">*</span></label>
+                      <select name={"fields[#{field["id"]}][target_model]"} required
+                              phx-change="update-field" phx-value-id={field["id"]} phx-value-attr="target_model"
+                              class="block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm bg-indigo-50">
+                        <option value="">-- Model --</option>
+                        <%= Phoenix.HTML.Form.options_for_select(Enum.map(@available_models, &{&1.name, &1.slug}), field["target_model"]) %>
+                      </select>
+                    <% end %>
+
+                    <div class="mt-4 flex items-center">
+                      <input type="checkbox" name={"fields[#{field["id"]}][required]"} checked={field["required"]} value="true"
+                             phx-click="update-field" phx-value-id={field["id"]} phx-value-attr="required"
+                             phx-value-value={to_string(!field["required"])} id={"req_#{field["id"]}"}
+                             class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer" />
+                      <label for={"req_#{field["id"]}"} class="ml-2 block text-sm font-medium text-gray-700 cursor-pointer">
+                        Required
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+
+            <%= if Enum.empty?(@fields) do %>
+              <div class="text-center py-6 bg-white border-2 border-gray-300 border-dashed rounded-lg">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No fields</h3>
+                <p class="mt-1 text-sm text-gray-500">Get started by adding a field to this model.</p>
+              </div>
+            <% end %>
+          </div>
         </div>
 
-        <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #E5E7EB; display: flex; align-items: center; gap: 16px;">
-          <button type="submit" style="padding: 10px 24px; background: #4F46E5; color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">Save Model</button>
-          <a href={"/admin/tenants/#{@current_tenant.slug}/models"} style="color: #6B7280; text-decoration: none; font-weight: 500;">Cancel</a>
+        <div class="mt-8 pt-6 border-t border-gray-200 flex items-center space-x-4">
+          <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">Save Model</button>
+          <a href={"/admin/tenants/#{@current_tenant.slug}/models"} class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Cancel</a>
         </div>
       </form>
     </div>

@@ -4,8 +4,6 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
   alias Okovita.Content
 
-  on_mount {OkovitaWeb.LiveAuth, :require_tenant_admin}
-
   def mount(%{"model_slug" => slug, "id" => id}, _session, socket) do
     prefix = socket.assigns.tenant_prefix
     model = Content.get_model_by_slug(slug, prefix)
@@ -86,34 +84,34 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
   def render(assigns) do
     ~H"""
-    <div style="max-width: 900px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-      <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 24px; color: #111827;">
-        <%= if @entry, do: "Edit Entry", else: "New Entry" %> — <%= @model.name %>
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-8">
+      <h1 class="text-2xl font-bold text-gray-900 mb-8">
+        <%= if @entry, do: "Edit Entry", else: "New Entry" %> — <span class="text-indigo-600"><%= @model.name %></span>
       </h1>
 
-      <form phx-submit="save" style="display: flex; flex-direction: column; gap: 24px;">
+      <form phx-submit="save" class="space-y-6">
         <div>
-          <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">Slug</label>
-          <input type="text" name="slug" value={@slug} required style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box;" />
+          <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+          <input type="text" name="slug" value={@slug} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
         </div>
 
         <%= for {field_name, field_def} <- @model.schema_definition do %>
           <div>
-            <label for={field_name} style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">
+            <label for={field_name} class="block text-sm font-medium text-gray-700 mb-1">
               <%= field_def["label"] %>
-              <span :if={field_def["required"]} style="color: #EF4444;">*</span>
+              <span :if={field_def["required"]} class="text-red-500">*</span>
             </label>
             <%= render_field_input(field_name, field_def, @data, @relation_options) %>
 
             <%= for err <- (@errors[String.to_atom(field_name)] || []) do %>
-              <p style="color: #EF4444; font-size: 14px; margin-top: 4px;"><%= err %></p>
+              <p class="mt-2 text-sm text-red-600"><%= err %></p>
             <% end %>
           </div>
         <% end %>
 
-        <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #E5E7EB; display: flex; align-items: center; gap: 16px;">
-          <button type="submit" style="padding: 10px 24px; background: #4F46E5; color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer;">Save Entry</button>
-          <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries"} style="color: #6B7280; text-decoration: none; font-weight: 500;">Cancel</a>
+        <div class="mt-8 pt-6 border-t border-gray-200 flex items-center space-x-4">
+          <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">Save Entry</button>
+          <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries"} class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Cancel</a>
         </div>
       </form>
     </div>
@@ -124,7 +122,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     assigns = %{name: name, value: Map.get(data, name, "")}
 
     ~H"""
-    <textarea name={@name} rows="5" style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box; font-family: inherit;"><%= @value %></textarea>
+    <textarea name={@name} rows="5" class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-sans"><%= @value %></textarea>
     """
   end
 
@@ -132,7 +130,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     assigns = %{name: name, checked: Map.get(data, name) in [true, "true"]}
 
     ~H"""
-    <input type="checkbox" name={@name} value="true" checked={@checked} style="width: 16px; height: 16px; accent-color: #4F46E5; cursor: pointer;" />
+    <input type="checkbox" name={@name} value="true" checked={@checked} class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer" />
     """
   end
 
@@ -145,7 +143,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     assigns = %{name: name, value: Map.get(data, name, ""), options: options}
 
     ~H"""
-    <select name={@name} style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box; background-color: white;">
+    <select name={@name} class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white">
       <option value="">Select...</option>
       <%= Phoenix.HTML.Form.options_for_select(@options, @value) %>
     </select>
@@ -160,7 +158,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     }
 
     ~H"""
-    <select name={@name} style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box; background-color: white;">
+    <select name={@name} class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white">
       <option value="">Select an entry...</option>
       <%= Phoenix.HTML.Form.options_for_select(@options, @value) %>
     </select>
@@ -177,7 +175,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     }
 
     ~H"""
-    <input type={@type} step={@step} name={@name} value={@value} style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box;" />
+    <input type={@type} step={@step} name={@name} value={@value} class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
     """
   end
 
@@ -185,7 +183,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     assigns = %{name: name, value: Map.get(data, name, "")}
 
     ~H"""
-    <input type="date" name={@name} value={@value} style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box;" />
+    <input type="date" name={@name} value={@value} class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
     """
   end
 
@@ -193,7 +191,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     assigns = %{name: name, value: Map.get(data, name, "")}
 
     ~H"""
-    <input type="datetime-local" name={@name} value={@value} style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box;" />
+    <input type="datetime-local" name={@name} value={@value} class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
     """
   end
 
@@ -201,7 +199,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     assigns = %{name: name, value: Map.get(data, name, "")}
 
     ~H"""
-    <input type="text" name={@name} value={@value} style="width: 100%; padding: 8px 12px; border: 1px solid #D1D5DB; border-radius: 4px; box-sizing: border-box;" />
+    <input type="text" name={@name} value={@value} class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
     """
   end
 

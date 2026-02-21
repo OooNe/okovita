@@ -26,7 +26,8 @@ config :okovita, OkovitaWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "Yn9o/4/KGzzUa9Pg+QAEDDtRUYUb/x01d/ALYhHDULJTwQHElfCCIsj95v3i8rNy",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:okovita, ~w(--sourcemap=inline --watch)]}
+    esbuild: {Esbuild, :install_and_run, [:okovita, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:okovita, ~w(--watch)]}
   ]
 
 # ## SSL Support

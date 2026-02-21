@@ -67,60 +67,83 @@ defmodule OkovitaWeb.Admin.TenantLive.ApiKeys do
 
   def render(assigns) do
     ~H"""
-    <div style="max-width: 1000px; margin: 40px auto; padding: 20px;">
-      <a href="/admin/tenants" style="color: #6B7280; text-decoration: none; font-size: 14px; margin-bottom: 12px; display: inline-block;">&larr; Back to Tenants</a>
-      <h1>API Keys: <%= @tenant.name %></h1>
-      <p style="color: #4B5563; margin-bottom: 24px;">Manage authentication key permissions for this Tenant workspace.</p>
+    <div class="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+      <div>
+        <a href="/admin/tenants" class="text-indigo-600 hover:text-indigo-900 text-sm font-medium mb-4 inline-block transition-colors">&larr; Back to Tenants</a>
+        <h1 class="text-2xl font-bold text-gray-900">API Keys: <span class="text-indigo-600"><%= @tenant.name %></span></h1>
+        <p class="mt-2 text-sm text-gray-500">Manage authentication key permissions for this Tenant workspace.</p>
+      </div>
 
       <%= if @new_raw_key do %>
-        <div style="background: #FEF3C7; border: 1px solid #F59E0B; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-          <strong>⚠️ Save this API key — it won't be shown again:</strong>
-          <code style="display: block; margin-top: 8px; padding: 12px; background: white; border-radius: 4px; font-size: 16px; user-select: all;"><%= @new_raw_key %></code>
+        <div class="rounded-md bg-yellow-50 p-4 border border-yellow-400">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-yellow-800">Save this API key — it won't be shown again:</h3>
+              <div class="mt-2 text-sm text-yellow-700">
+                <code class="block font-mono bg-white px-3 py-2 rounded-md border border-yellow-200 select-all"><%= @new_raw_key %></code>
+              </div>
+            </div>
+          </div>
         </div>
       <% end %>
 
-      <button phx-click="toggle-generate" style="margin-bottom: 20px; padding: 8px 16px; background: #4F46E5; color: white; border: none; border-radius: 4px; cursor: pointer;">
-        <%= if @show_generate, do: "Cancel", else: "+ Generate Key" %>
-      </button>
+      <div>
+        <button phx-click="toggle-generate" class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-colors">
+          <%= if @show_generate, do: "Cancel", else: "+ Generate Key" %>
+        </button>
+      </div>
 
       <%= if @show_generate do %>
-        <form phx-submit="generate-key" style="margin-bottom: 24px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; background: #F9FAFB;">
-          <div style="margin-bottom: 12px;">
-            <label style="display: block; font-weight: 600; margin-bottom: 4px;">Key Name (e.g., 'Mobile App', 'Staging')</label>
-            <input type="text" name="name" required style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" />
-          </div>
-          <button type="submit" style="padding: 8px 16px; background: #059669; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate Key</button>
-        </form>
+        <div class="bg-gray-50 px-6 py-5 border border-gray-200 shadow-sm sm:rounded-lg mb-6">
+          <form phx-submit="generate-key" class="space-y-4 max-w-sm">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Key Name (e.g., 'Mobile App', 'Staging')</label>
+              <div class="mt-1">
+                <input type="text" name="name" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              </div>
+            </div>
+            <div>
+              <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">Generate Key</button>
+            </div>
+          </form>
+        </div>
       <% end %>
 
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-          <tr style="border-bottom: 2px solid #ddd;">
-            <th style="text-align: left; padding: 8px;">Name</th>
-            <th style="text-align: left; padding: 8px;">Created At (UTC)</th>
-            <th style="text-align: right; padding: 8px;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <%= if length(@api_keys) == 0 do %>
+      <div class="overflow-hidden bg-white ring-1 ring-gray-200 shadow-sm sm:rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
             <tr>
-              <td colspan="3" style="padding: 16px; text-align: center; color: #6B7280; font-style: italic;">
-                No API keys found. This tenant currently has no access to the API.
-              </td>
+              <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Created At (UTC)</th>
+              <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right text-sm font-semibold text-gray-900">Actions</th>
             </tr>
-          <% else %>
-            <%= for key <- @api_keys do %>
-              <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 8px; font-weight: 500;"><%= key.name %></td>
-                <td style="padding: 8px; color: #4B5563;"><%= format_date(key.inserted_at) %></td>
-                <td style="padding: 8px; text-align: right;">
-                  <button phx-click={"delete-key-#{key.id}"} data-confirm="Are you sure? This action is immediate and irrevocable, and systems relying on this key will lose access." style="padding: 4px 8px; background: #EF4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 4px;">Revoke Key</button>
+          </thead>
+          <tbody class="divide-y divide-gray-200 bg-white">
+            <%= if length(@api_keys) == 0 do %>
+              <tr>
+                <td colspan="3" class="whitespace-nowrap py-8 pl-4 pr-3 text-sm text-center text-gray-500 italic sm:pl-6">
+                  No API keys found. This tenant currently has no access to the API.
                 </td>
               </tr>
+            <% else %>
+              <%= for key <- @api_keys do %>
+                <tr class="hover:bg-gray-50 transition-colors group">
+                  <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6"><%= key.name %></td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 font-mono"><%= format_date(key.inserted_at) %></td>
+                  <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <button phx-click={"delete-key-#{key.id}"} data-confirm="Are you sure? This action is immediate and irrevocable, and systems relying on this key will lose access." class="text-red-500 hover:text-red-700 transition-colors focus:outline-none">Revoke Key</button>
+                  </td>
+                </tr>
+              <% end %>
             <% end %>
-          <% end %>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
     """
   end
