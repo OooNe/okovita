@@ -472,34 +472,50 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
         </div>
       <% end %>
 
-      <!-- LiveUpload Input -->
-      <div class="flex items-center justify-center w-full">
-        <label for={@uploads[String.to_atom(@name)].ref} class="flex flex-col items-center justify-center w-full border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer">
-          <div class="flex flex-col items-center justify-center pt-5 pb-3">
-            <svg class="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+      <!-- Upload zone -->
+      <div class="flex rounded-xl border border-gray-200 overflow-hidden shadow-sm" phx-drop-target={@uploads[String.to_atom(@name)].ref}>
+        <!-- Left: file upload -->
+        <label for={@uploads[String.to_atom(@name)].ref}
+               class="flex-1 flex flex-col items-center justify-center gap-2 py-7 px-4
+                      bg-white hover:bg-indigo-50/40 cursor-pointer transition-colors group">
+          <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center
+                      group-hover:bg-indigo-100 transition-colors">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
-            <p class="text-xs text-gray-500">SVG, PNG, JPG or WEBP</p>
           </div>
+          <span class="text-sm font-medium text-gray-700 group-hover:text-indigo-700 transition-colors">Wgraj plik</span>
+          <span class="text-xs text-gray-400">PNG, JPG, WEBP</span>
           <.live_file_input upload={@uploads[String.to_atom(@name)]} class="hidden" />
-          <!-- divider -->
-          <div class="flex items-center w-full px-4 py-2">
-            <div class="flex-1 h-px bg-gray-200"></div>
-            <span class="px-3 text-xs text-gray-400">lub</span>
-            <div class="flex-1 h-px bg-gray-200"></div>
-          </div>
-          <!-- Library picker button -->
-          <button type="button"
-                  phx-click="open-media-picker"
-                  phx-value-field={@name}
-                  phx-value-mode="single"
-                  class="mb-4 text-sm text-indigo-600 hover:text-indigo-800 font-medium
-                         underline underline-offset-2 transition-colors"
-                  onclick="event.preventDefault()">
-            dodaj z biblioteki mediów
-          </button>
         </label>
+
+        <!-- Divider -->
+        <div class="flex flex-col items-center justify-center gap-1 py-4">
+          <div class="w-px flex-1 bg-gray-100"></div>
+          <span class="text-[10px] font-medium text-gray-300 tracking-widest uppercase px-1">lub</span>
+          <div class="w-px flex-1 bg-gray-100"></div>
+        </div>
+
+        <!-- Right: media library -->
+        <button type="button"
+                phx-click="open-media-picker"
+                phx-value-field={@name}
+                phx-value-mode="single"
+                onclick="event.preventDefault()"
+                class="flex-1 flex flex-col items-center justify-center gap-2 py-7 px-4
+                       bg-white hover:bg-violet-50/40 cursor-pointer transition-colors group border-none">
+          <div class="w-10 h-10 rounded-full bg-violet-50 flex items-center justify-center
+                      group-hover:bg-violet-100 transition-colors">
+            <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14
+                       m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-gray-700 group-hover:text-violet-700 transition-colors">Z biblioteki mediów</span>
+          <span class="text-xs text-gray-400">Wybierz istniejący plik</span>
+        </button>
       </div>
 
       <!-- Upload Entries Preview & Progress -->
@@ -568,34 +584,50 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
         </div>
       <% end %>
 
-      <!-- LiveUpload Input -->
-      <div class="flex items-center justify-center w-full">
-        <label for={@uploads[String.to_atom(@name)].ref} class="flex flex-col items-center justify-center w-full border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer">
-          <div class="flex flex-col items-center justify-center pt-5 pb-3">
-            <svg class="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+      <!-- Upload zone -->
+      <div class="flex rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <!-- Left: file upload -->
+        <label for={@uploads[String.to_atom(@name)].ref}
+               class="flex-1 flex flex-col items-center justify-center gap-2 py-7 px-4
+                      bg-white hover:bg-indigo-50/40 cursor-pointer transition-colors group">
+          <div class="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center
+                      group-hover:bg-indigo-100 transition-colors">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
-            <p class="text-xs text-gray-500">Add up to 20 images</p>
           </div>
+          <span class="text-sm font-medium text-gray-700 group-hover:text-indigo-700 transition-colors">Wgraj pliki</span>
+          <span class="text-xs text-gray-400">PNG, JPG, WEBP &middot; maks. 20</span>
           <.live_file_input upload={@uploads[String.to_atom(@name)]} class="hidden" />
-          <!-- divider -->
-          <div class="flex items-center w-full px-4 py-2">
-            <div class="flex-1 h-px bg-gray-200"></div>
-            <span class="px-3 text-xs text-gray-400">lub</span>
-            <div class="flex-1 h-px bg-gray-200"></div>
-          </div>
-          <!-- Library picker button -->
-          <button type="button"
-                  phx-click="open-media-picker"
-                  phx-value-field={@name}
-                  phx-value-mode="multi"
-                  class="mb-4 text-sm text-indigo-600 hover:text-indigo-800 font-medium
-                         underline underline-offset-2 transition-colors"
-                  onclick="event.preventDefault()">
-            dodaj z biblioteki mediów
-          </button>
         </label>
+
+        <!-- Divider -->
+        <div class="flex flex-col items-center justify-center gap-1 py-4">
+          <div class="w-px flex-1 bg-gray-100"></div>
+          <span class="text-[10px] font-medium text-gray-300 tracking-widest uppercase px-1">lub</span>
+          <div class="w-px flex-1 bg-gray-100"></div>
+        </div>
+
+        <!-- Right: media library -->
+        <button type="button"
+                phx-click="open-media-picker"
+                phx-value-field={@name}
+                phx-value-mode="multi"
+                onclick="event.preventDefault()"
+                class="flex-1 flex flex-col items-center justify-center gap-2 py-7 px-4
+                       bg-white hover:bg-violet-50/40 cursor-pointer transition-colors group border-none">
+          <div class="w-10 h-10 rounded-full bg-violet-50 flex items-center justify-center
+                      group-hover:bg-violet-100 transition-colors">
+            <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14
+                       m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <span class="text-sm font-medium text-gray-700 group-hover:text-violet-700 transition-colors">Z biblioteki mediów</span>
+          <span class="text-xs text-gray-400">Wybierz istniejące pliki</span>
+        </button>
       </div>
 
       <!-- Upload Entries Preview & Progress -->
