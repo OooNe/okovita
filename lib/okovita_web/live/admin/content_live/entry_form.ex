@@ -2,6 +2,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
   @moduledoc "Tenant admin: create or edit a content entry with dynamic form from schema_definition."
   use OkovitaWeb, :live_view
 
+  import OkovitaWeb.MediaComponents, only: [media_picker_modal: 1]
+
   alias Okovita.Content
 
   def mount(%{"model_slug" => slug, "id" => id}, _session, socket) do
@@ -22,7 +24,10 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           slug: entry.slug,
           prefix: prefix,
           errors: %{},
-          relation_options: load_relation_options(model, prefix)
+          relation_options: load_relation_options(model, prefix),
+          media_items: Content.list_media(prefix),
+          picker_open: nil,
+          picker_selection: MapSet.new()
         )
         |> allow_image_uploads(model)
 
@@ -46,7 +51,10 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           slug: "",
           prefix: prefix,
           errors: %{},
-          relation_options: load_relation_options(model, prefix)
+          relation_options: load_relation_options(model, prefix),
+          media_items: Content.list_media(prefix),
+          picker_open: nil,
+          picker_selection: MapSet.new()
         )
         |> allow_image_uploads(model)
 
@@ -54,6 +62,101 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     else
       {:ok, push_navigate(socket, to: "/admin/models")}
     end
+  end
+
+  def handle_event("open-media-picker", %{"field" => field, "mode" => mode}, socket) do
+    mode_atom = if mode == "single", do: :single, else: :multi
+
+    {:noreply,
+     assign(socket, picker_open: %{field: field, mode: mode_atom}, picker_selection: MapSet.new())}
+  end
+
+  def handle_event("picker-toggle-select", %{"id" => id}, socket) do
+    selection = socket.assigns.picker_selection
+    mode = socket.assigns.picker_open.mode
+
+    updated =
+      cond do
+        MapSet.member?(selection, id) -> MapSet.delete(selection, id)
+        mode == :single -> MapSet.new([id])
+        true -> MapSet.put(selection, id)
+      end
+
+    {:noreply, assign(socket, picker_selection: updated)}
+  end
+
+  def handle_event("picker-confirm", %{"field" => field_name}, socket) do
+    selected_ids = MapSet.to_list(socket.assigns.picker_selection)
+    data = socket.assigns.data
+    picker_open = socket.assigns.picker_open
+
+    # Build a quick lookup map from already-loaded media_items (no extra DB query needed)
+    media_map =
+      socket.assigns.media_items
+      |> Enum.map(&{&1.id, &1})
+      |> Enum.into(%{})
+
+    updated_data =
+      case picker_open.mode do
+        :single ->
+          [selected_id | _] = selected_ids
+
+          value =
+            case Map.get(media_map, selected_id) do
+              nil ->
+                selected_id
+
+              media ->
+                %{
+                  "id" => media.id,
+                  "url" => media.url,
+                  "file_name" => media.file_name,
+                  "mime_type" => media.mime_type
+                }
+            end
+
+          Map.put(data, field_name, value)
+
+        :multi ->
+          existing = Map.get(data, field_name, []) || []
+
+          existing_ids =
+            Enum.map(existing, fn
+              %{"media_id" => id} -> id
+              %{media_id: id} -> id
+              id when is_binary(id) -> id
+            end)
+
+          # Deduplicate: don't add an ID that's already in the gallery
+          existing_set = MapSet.new(existing_ids)
+          new_ids = Enum.reject(selected_ids, &MapSet.member?(existing_set, &1))
+          all_ids = existing_ids ++ new_ids
+
+          mapped =
+            all_ids
+            |> Enum.with_index()
+            |> Enum.map(fn {id, i} ->
+              base = %{"media_id" => id, "index" => i}
+
+              case Map.get(media_map, id) do
+                nil -> base
+                media -> Map.merge(base, %{"url" => media.url, "file_name" => media.file_name})
+              end
+            end)
+
+          Map.put(data, field_name, mapped)
+      end
+
+    {:noreply,
+     assign(socket,
+       data: updated_data,
+       picker_open: nil,
+       picker_selection: MapSet.new()
+     )}
+  end
+
+  def handle_event("picker-cancel", _params, socket) do
+    {:noreply, assign(socket, picker_open: nil, picker_selection: MapSet.new())}
   end
 
   def handle_event("save", params, socket) do
@@ -324,6 +427,11 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries"} class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Cancel</a>
         </div>
       </form>
+
+      <.media_picker_modal
+        picker_open={@picker_open}
+        picker_selection={@picker_selection}
+        media_items={@media_items} />
     </div>
     """
   end
@@ -366,8 +474,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
       <!-- LiveUpload Input -->
       <div class="flex items-center justify-center w-full">
-        <label for={@uploads[String.to_atom(@name)].ref} class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-          <div class="flex flex-col items-center justify-center pt-5 pb-6">
+        <label for={@uploads[String.to_atom(@name)].ref} class="flex flex-col items-center justify-center w-full border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer">
+          <div class="flex flex-col items-center justify-center pt-5 pb-3">
             <svg class="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
             </svg>
@@ -375,6 +483,22 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
             <p class="text-xs text-gray-500">SVG, PNG, JPG or WEBP</p>
           </div>
           <.live_file_input upload={@uploads[String.to_atom(@name)]} class="hidden" />
+          <!-- divider -->
+          <div class="flex items-center w-full px-4 py-2">
+            <div class="flex-1 h-px bg-gray-200"></div>
+            <span class="px-3 text-xs text-gray-400">lub</span>
+            <div class="flex-1 h-px bg-gray-200"></div>
+          </div>
+          <!-- Library picker button -->
+          <button type="button"
+                  phx-click="open-media-picker"
+                  phx-value-field={@name}
+                  phx-value-mode="single"
+                  class="mb-4 text-sm text-indigo-600 hover:text-indigo-800 font-medium
+                         underline underline-offset-2 transition-colors"
+                  onclick="event.preventDefault()">
+            dodaj z biblioteki mediów
+          </button>
         </label>
       </div>
 
@@ -446,8 +570,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
       <!-- LiveUpload Input -->
       <div class="flex items-center justify-center w-full">
-        <label for={@uploads[String.to_atom(@name)].ref} class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-          <div class="flex flex-col items-center justify-center pt-5 pb-6">
+        <label for={@uploads[String.to_atom(@name)].ref} class="flex flex-col items-center justify-center w-full border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer">
+          <div class="flex flex-col items-center justify-center pt-5 pb-3">
             <svg class="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
             </svg>
@@ -455,6 +579,22 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
             <p class="text-xs text-gray-500">Add up to 20 images</p>
           </div>
           <.live_file_input upload={@uploads[String.to_atom(@name)]} class="hidden" />
+          <!-- divider -->
+          <div class="flex items-center w-full px-4 py-2">
+            <div class="flex-1 h-px bg-gray-200"></div>
+            <span class="px-3 text-xs text-gray-400">lub</span>
+            <div class="flex-1 h-px bg-gray-200"></div>
+          </div>
+          <!-- Library picker button -->
+          <button type="button"
+                  phx-click="open-media-picker"
+                  phx-value-field={@name}
+                  phx-value-mode="multi"
+                  class="mb-4 text-sm text-indigo-600 hover:text-indigo-800 font-medium
+                         underline underline-offset-2 transition-colors"
+                  onclick="event.preventDefault()">
+            dodaj z biblioteki mediów
+          </button>
         </label>
       </div>
 

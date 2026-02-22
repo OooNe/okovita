@@ -3,6 +3,7 @@ defmodule OkovitaWeb.MediaComponents do
   Reusable UI components for media management:
   - Upload progress toast
   - Delete confirmation modal
+  - Media library picker modal
   """
   use Phoenix.Component
 
@@ -135,6 +136,142 @@ defmodule OkovitaWeb.MediaComponents do
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+    """
+  end
+
+  @doc """
+  Renders a full-screen modal picker for selecting media from the library.
+
+  ## Attributes
+  - `picker_open` – nil (hidden) or %{field: field_name, mode: :single | :multi}
+  - `picker_selection` – MapSet of selected media IDs
+  - `media_items` – list of media structs for the current tenant
+  """
+  attr :picker_open, :map, default: nil
+  attr :picker_selection, :any, required: true
+  attr :media_items, :list, required: true
+
+  def media_picker_modal(assigns) do
+    ~H"""
+    <%= if @picker_open do %>
+      <%!-- Backdrop --%>
+      <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-40"
+           phx-click="picker-cancel" />
+
+      <%!-- Panel --%>
+      <div class="fixed inset-x-4 inset-y-6 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2
+                  sm:w-full sm:max-w-4xl bg-white rounded-2xl shadow-2xl z-50
+                  flex flex-col overflow-hidden animate-fade-in-up">
+
+        <%!-- Header --%>
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">Biblioteka mediów</h2>
+            <p class="text-xs text-gray-500 mt-0.5">
+              <%= if @picker_open.mode == :single do %>
+                Wybierz jeden plik
+              <% else %>
+                Wybierz jeden lub więcej plików
+              <% end %>
+            </p>
+          </div>
+          <button type="button" phx-click="picker-cancel"
+                  class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <%!-- Scrollable media grid --%>
+        <div class="flex-1 overflow-y-auto p-6">
+          <%= if Enum.empty?(@media_items) do %>
+            <div class="flex flex-col items-center justify-center h-48 text-gray-400">
+              <svg class="w-12 h-12 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <p class="text-sm">Brak plików w bibliotece</p>
+            </div>
+          <% else %>
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+              <%= for item <- @media_items do %>
+                <% selected? = MapSet.member?(@picker_selection, item.id) %>
+                <button type="button"
+                        phx-click="picker-toggle-select"
+                        phx-value-id={item.id}
+                        class={["group relative rounded-xl overflow-hidden border-2 transition-all
+                                 aspect-square focus:outline-none focus:ring-2 focus:ring-indigo-500",
+                                 if(selected?,
+                                   do: "border-indigo-600 ring-2 ring-indigo-500/30",
+                                   else: "border-gray-200 hover:border-indigo-400")]}>
+                  <%= if String.starts_with?(item.mime_type, "image/") do %>
+                    <img src={item.url} alt={item.file_name} loading="lazy"
+                         class="object-cover w-full h-full transition-opacity group-hover:opacity-90" />
+                  <% else %>
+                    <div class="flex items-center justify-center w-full h-full bg-gray-50 text-gray-400">
+                      <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                  <% end %>
+                  <%!-- Selection overlay badge --%>
+                  <div class={["absolute inset-0 transition-colors",
+                               if(selected?, do: "bg-indigo-600/10", else: "")]} />
+                  <div class={["absolute top-1.5 right-1.5 w-5 h-5 rounded-full border-2
+                                flex items-center justify-center transition-all shadow-sm",
+                                if(selected?,
+                                  do: "bg-indigo-600 border-indigo-600",
+                                  else: "bg-white/80 border-gray-300 opacity-0 group-hover:opacity-100")]}>
+                    <%= if selected? do %>
+                      <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                      </svg>
+                    <% end %>
+                  </div>
+                  <%!-- Filename tooltip on hover --%>
+                  <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent
+                              p-1.5 translate-y-full group-hover:translate-y-0 transition-transform">
+                    <p class="text-[10px] text-white truncate" title={item.file_name}><%= item.file_name %></p>
+                  </div>
+                </button>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <%!-- Footer --%>
+        <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 flex-shrink-0 bg-gray-50/50">
+          <span class="text-sm text-gray-500">
+            <%= case MapSet.size(@picker_selection) do %>
+              <% 0 -> %>Nie wybrano żadnego pliku
+              <% n -> %>Wybrano: <span class="font-semibold text-gray-800"><%= n %></span>
+                       <%= if @picker_open.mode == :single, do: "(maks. 1)", else: "" %>
+            <% end %>
+          </span>
+          <div class="flex gap-3">
+            <button type="button" phx-click="picker-cancel"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300
+                           rounded-lg hover:bg-gray-50 transition-colors">
+              Anuluj
+            </button>
+            <button type="button" phx-click="picker-confirm"
+                    phx-value-field={@picker_open.field}
+                    phx-value-mode={@picker_open.mode}
+                    disabled={MapSet.size(@picker_selection) == 0}
+                    class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg
+                           hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed
+                           transition-colors flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Dodaj
+            </button>
           </div>
         </div>
       </div>
