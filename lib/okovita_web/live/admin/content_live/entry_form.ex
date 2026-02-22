@@ -10,6 +10,9 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     entry = if model, do: Content.get_entry(id, prefix)
 
     if model && entry do
+      # N+1 Fix: Populate media upfront to avoid DB lookups inside render_field_input
+      entry = Content.populate_media(entry, model, prefix)
+
       socket =
         socket
         |> assign(
@@ -59,66 +62,105 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     slug = params["slug"] || ""
 
     # Process uploads for image fields
-    upload_data =
+    upload_results =
       Enum.reduce(model.schema_definition || %{}, %{}, fn {field_name, def}, acc ->
         if def["field_type"] in ["image", "image_gallery"] do
-          uploaded_urls =
+          uploaded_media_results =
             consume_uploaded_entries(socket, String.to_atom(field_name), fn %{path: path},
                                                                             entry ->
-              file_ext = Path.extname(entry.client_name)
-              file_name = "#{Ecto.UUID.generate()}#{file_ext}"
-              bucket = Application.get_env(:okovita, :s3_bucket, "okovita-content")
+              case Okovita.Media.Uploader.upload(path, entry.client_name, entry.client_type) do
+                {:ok, attrs} ->
+                  case Okovita.Content.create_media(attrs, prefix) do
+                    {:ok, media} -> {:ok, {:ok, media.id}}
+                    _ -> {:ok, {:error, "Failed to create media record for #{entry.client_name}"}}
+                  end
 
-              file_binary = File.read!(path)
+                {:error, _reason} ->
+                  {:ok, {:error, "Failed to upload #{entry.client_name} to S3"}}
 
-              # Upload to S3
-              ExAws.S3.put_object(bucket, file_name, file_binary,
-                content_type: entry.client_type,
-                acl: :public_read
-              )
-              |> ExAws.request!()
-
-              # Generate the public URL (Note: in production this might be a CDN URL)
-              ex_aws_config = ExAws.Config.new(:s3)
-              scheme = ex_aws_config[:scheme] || "https://"
-
-              # For localstack, the public URL still needs to be localhost so the browser can reach it.
-              # The internal ex_aws host is used for server-to-server communication (e.g., "localstack").
-              public_host =
-                if Application.get_env(:okovita, :env) == :dev ||
-                     System.get_env("MIX_ENV") == "dev",
-                   do: "localhost",
-                   else: ex_aws_config[:host] || "s3.amazonaws.com"
-
-              port = if ex_aws_config[:port], do: ":#{ex_aws_config[:port]}", else: ""
-
-              url = "#{scheme}#{public_host}#{port}/#{bucket}/#{file_name}"
-              {:ok, url}
+                _ ->
+                  {:ok, {:error, "Failed to upload #{entry.client_name}"}}
+              end
             end)
+
+          # separate successes from errors
+          errors =
+            Enum.filter(uploaded_media_results, fn
+              {:error, _} -> true
+              _ -> false
+            end)
+            |> Enum.map(fn {:error, msg} -> msg end)
+
+          successes =
+            Enum.filter(uploaded_media_results, fn
+              {:ok, _} -> true
+              _ -> false
+            end)
+            |> Enum.map(fn {:ok, id} -> id end)
+
+          Map.put(acc, field_name, %{successes: successes, errors: errors})
+        else
+          acc
+        end
+      end)
+
+    # Flash errors if any S3 upload failed
+    all_upload_errors =
+      upload_results
+      |> Map.values()
+      |> Enum.flat_map(& &1.errors)
+
+    socket =
+      if length(all_upload_errors) > 0 do
+        put_flash(socket, :error, Enum.join(all_upload_errors, " | "))
+      else
+        socket
+      end
+
+    # Extract just the valid IDs mapped for data
+    upload_data =
+      Enum.into(upload_results, %{}, fn {field, result_map} ->
+        {field, result_map.successes}
+      end)
+
+    # Process field assignments exactly as before using the filtered upload_data list
+    upload_data_mapped =
+      Enum.reduce(model.schema_definition || %{}, %{}, fn {field_name, def}, acc ->
+        if def["field_type"] in ["image", "image_gallery"] do
+          uploaded_media_ids = Map.get(upload_data, field_name, [])
 
           case def["field_type"] do
             "image" ->
-              if length(uploaded_urls) > 0 do
-                Map.put(acc, field_name, hd(uploaded_urls))
+              if length(uploaded_media_ids) > 0 do
+                Map.put(acc, field_name, hd(uploaded_media_ids))
               else
                 # Keep the existing value if no new file is uploaded
                 existing = Map.get(socket.assigns.data, field_name)
-                if existing && existing != "", do: Map.put(acc, field_name, existing), else: acc
+                # existing is the populated media object or a raw string URL from older versions
+                id =
+                  case existing do
+                    %{id: id} -> id
+                    %{"id" => id} -> id
+                    id when is_binary(id) -> id
+                    _ -> ""
+                  end
+
+                if id != "", do: Map.put(acc, field_name, id), else: acc
               end
 
             "image_gallery" ->
-              # Existing URLs might come from params due to hidden inputs, or from assigns data.
+              # Existing items might come from params due to hidden inputs, or from assigns data.
               # We prioritize params (which represents the grid state after removals and sorting)
               existing_from_params = Map.get(params, "#{field_name}__existing", [])
 
-              all_urls = existing_from_params ++ uploaded_urls
+              all_ids = existing_from_params ++ uploaded_media_ids
 
-              mapped_urls =
-                all_urls
+              mapped_ids =
+                all_ids
                 |> Enum.with_index()
-                |> Enum.map(fn {url, i} -> %{"image_url" => url, "index" => i} end)
+                |> Enum.map(fn {id, i} -> %{"media_id" => id, "index" => i} end)
 
-              Map.put(acc, field_name, mapped_urls)
+              Map.put(acc, field_name, mapped_ids)
           end
         else
           acc
@@ -132,7 +174,9 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
         # Overwrite param values with uploaded URLs if they exist for image fields
         # Fallback for empty image gallery in params
         fallback = if def["field_type"] == "image_gallery", do: [], else: ""
-        {field_name, Map.get(upload_data, field_name, Map.get(params, field_name, fallback))}
+
+        {field_name,
+         Map.get(upload_data_mapped, field_name, Map.get(params, field_name, fallback))}
       end)
 
     result =
@@ -170,7 +214,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
       current_images
       |> Enum.with_index()
       |> Enum.map(fn
-        {url, idx} when is_binary(url) -> %{"image_url" => url, "index" => idx}
+        {id, idx} when is_binary(id) -> %{"media_id" => id, "index" => idx}
         {map, _} when is_map(map) -> map
       end)
       |> List.delete_at(index)
@@ -196,14 +240,29 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     updated_data =
       Enum.reduce(model.schema_definition || %{}, data, fn {field_name, def}, acc_data ->
         if def["field_type"] == "image_gallery" do
-          sorted_urls_from_dom = Map.get(params, "#{field_name}__existing", [])
+          sorted_ids_from_dom = Map.get(params, "#{field_name}__existing", [])
+          existing_data = Map.get(data, field_name, []) || []
 
-          mapped_urls =
-            sorted_urls_from_dom
+          mapped_ids =
+            sorted_ids_from_dom
             |> Enum.with_index()
-            |> Enum.map(fn {url, i} -> %{"image_url" => url, "index" => i} end)
+            |> Enum.map(fn {id, i} ->
+              existing_item =
+                Enum.find(existing_data, fn item ->
+                  (is_map(item) && item["media_id"] == id) || (is_binary(item) && item == id)
+                end)
 
-          Map.put(acc_data, field_name, mapped_urls)
+              merged =
+                case existing_item do
+                  nil -> %{}
+                  map when is_map(map) -> map
+                  bin when is_binary(bin) -> %{}
+                end
+
+              Map.merge(merged, %{"media_id" => id, "index" => i})
+            end)
+
+          Map.put(acc_data, field_name, mapped_ids)
         else
           acc_data
         end
@@ -246,17 +305,13 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           <input type="text" name="slug" value={@slug} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
         </div>
 
-        <%= for {field_name, field_def} <- @model.schema_definition do %>
+        <%= for {field_name, def} <- @model.schema_definition do %>
           <div>
             <label for={field_name} class="block text-sm font-medium text-gray-700 mb-1">
-              <%= field_def["label"] %>
-              <span :if={field_def["required"]} class="text-red-500">*</span>
+              <%= def["label"] %>
+              <span :if={def["required"]} class="text-red-500">*</span>
             </label>
-            <%= if field_def["field_type"] in ["image", "image_gallery"] do %>
-              <%= render_field_input(field_name, field_def, @data, @uploads) %>
-            <% else %>
-              <%= render_field_input(field_name, field_def, @data, @relation_options) %>
-            <% end %>
+            <%= render_field_input(field_name, def, @data, @relation_options, @uploads, @prefix) %>
 
             <%= for err <- (@errors[String.to_atom(field_name)] || []) do %>
               <p class="mt-2 text-sm text-red-600"><%= err %></p>
@@ -273,16 +328,39 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, %{"field_type" => "image"}, data, uploads) do
-    # For the UI, we only need name and value. We rely on the `@uploads` assign explicitly passed now.
-    assigns = %{name: name, value: Map.get(data, name, ""), uploads: uploads}
+  # Unified render_field_input mapping
+  defp render_field_input(
+         name,
+         %{"field_type" => "image"},
+         data,
+         _relation_options,
+         uploads,
+         _prefix
+       ) do
+    raw_value = Map.get(data, name, "")
+
+    media_url =
+      case raw_value do
+        %{url: url} -> url
+        %{"url" => url} -> url
+        _ -> nil
+      end
+
+    value =
+      case raw_value do
+        %{id: id} -> id
+        %{"id" => id} -> id
+        id when is_binary(id) -> id
+        _ -> ""
+      end
+
+    assigns = %{name: name, value: value, uploads: uploads, media_url: media_url}
 
     ~H"""
-    <div class="mt-2 flex flex-col space-y-4" phx-drop-target={@uploads[String.to_atom(@name)].ref}>
-      <!-- Existing Image Preview -->
-      <%= if @value != "" do %>
-        <div class="relative w-32 h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
-          <img src={@value} alt="Preview" class="object-cover w-full h-full" />
+    <div class="mt-2" phx-drop-target={@uploads[String.to_atom(@name)].ref}>
+      <%= if @media_url do %>
+        <div class="mb-4 relative w-32 h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+          <img src={@media_url} alt="Uploaded Image" class="object-cover w-full h-full" />
         </div>
       <% end %>
 
@@ -325,21 +403,26 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, %{"field_type" => "image_gallery"}, data, uploads) do
-    # For the UI, we only need name and value. We rely on the `@uploads` assign explicitly passed now.
+  defp render_field_input(
+         name,
+         %{"field_type" => "image_gallery"},
+         data,
+         _relation_options,
+         uploads,
+         prefix
+       ) do
     raw_value = Map.get(data, name, []) || []
 
-    # Normalize legacy string-only arrays into our object format for safe rendering
     normalized_value =
       raw_value
       |> Enum.with_index()
       |> Enum.map(fn
-        {url, idx} when is_binary(url) -> %{"image_url" => url, "index" => idx}
-        {map, _idx} when is_map(map) -> map
+        {id, idx} when is_binary(id) -> %{"media_id" => id, "index" => idx}
+        {map, _} when is_map(map) -> map
       end)
       |> Enum.sort_by(&(&1["index"] || 0))
 
-    assigns = %{name: name, value: normalized_value, uploads: uploads}
+    assigns = %{name: name, value: normalized_value, uploads: uploads, prefix: prefix}
 
     ~H"""
     <div class="mt-2 flex flex-col space-y-4" phx-drop-target={@uploads[String.to_atom(@name)].ref}>
@@ -348,9 +431,11 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" phx-hook="Sortable" id={"sortable-#{@name}"}>
           <%= for item <- Enum.sort_by(@value, & &1["index"]) do %>
             <div class="relative group w-full h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-move">
-              <img src={item["image_url"]} alt="Gallery Image" class="object-cover w-full h-full pointer-events-none" />
+              <%= if item["url"] || item[:url] do %>
+                <img src={item["url"] || item[:url]} alt="Gallery Image" class="object-cover w-full h-full pointer-events-none" />
+              <% end %>
               <!-- Hidden input to keep existing URLs in form data -->
-              <input type="hidden" name={"#{@name}__existing[]"} value={item["image_url"]} />
+              <input type="hidden" name={"#{@name}__existing[]"} value={item["media_id"]} />
               <button type="button" phx-click="remove-gallery-image" phx-value-name={@name} phx-value-index={item["index"]} class="absolute top-2 right-2 bg-white bg-opacity-75 rounded-full p-1 text-gray-700 hover:text-red-500 hover:bg-opacity-100 transition-all opacity-0 group-hover:opacity-100">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
@@ -401,7 +486,14 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, %{"field_type" => "textarea"}, data, _relation_options) do
+  defp render_field_input(
+         name,
+         %{"field_type" => "textarea"},
+         data,
+         _relation_options,
+         _uploads,
+         _prefix
+       ) do
     assigns = %{name: name, value: Map.get(data, name, "")}
 
     ~H"""
@@ -409,7 +501,14 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, %{"field_type" => "boolean"}, data, _relation_options) do
+  defp render_field_input(
+         name,
+         %{"field_type" => "boolean"},
+         data,
+         _relation_options,
+         _uploads,
+         _prefix
+       ) do
     assigns = %{name: name, checked: Map.get(data, name) in [true, "true"]}
 
     ~H"""
@@ -421,7 +520,9 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
          name,
          %{"field_type" => "enum", "one_of" => options},
          data,
-         _relation_options
+         _relation_options,
+         _uploads,
+         _prefix
        ) do
     assigns = %{name: name, value: Map.get(data, name, ""), options: options}
 
@@ -433,7 +534,32 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, %{"field_type" => "relation"}, data, relation_options) do
+  defp render_field_input(
+         name,
+         %{"field_type" => type},
+         _data,
+         _relation_options,
+         _uploads,
+         _prefix
+       )
+       when type in ["list", "map"] do
+    assigns = %{name: name, type: type}
+
+    ~H"""
+    <div class="p-4 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-500 italic">
+      Field type '<%= @type %>' is not currently supported in the admin UI.
+    </div>
+    """
+  end
+
+  defp render_field_input(
+         name,
+         %{"field_type" => "relation"},
+         data,
+         relation_options,
+         _uploads,
+         _prefix
+       ) do
     assigns = %{
       name: name,
       value: Map.get(data, name, ""),
@@ -448,7 +574,14 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, %{"field_type" => type}, data, _relation_options)
+  defp render_field_input(
+         name,
+         %{"field_type" => type},
+         data,
+         _relation_options,
+         _uploads,
+         _prefix
+       )
        when type in ["integer", "number"] do
     assigns = %{
       name: name,
@@ -462,7 +595,14 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, %{"field_type" => "date"}, data, _relation_options) do
+  defp render_field_input(
+         name,
+         %{"field_type" => "date"},
+         data,
+         _relation_options,
+         _uploads,
+         _prefix
+       ) do
     assigns = %{name: name, value: Map.get(data, name, "")}
 
     ~H"""
@@ -470,7 +610,14 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, %{"field_type" => "datetime"}, data, _relation_options) do
+  defp render_field_input(
+         name,
+         %{"field_type" => "datetime"},
+         data,
+         _relation_options,
+         _uploads,
+         _prefix
+       ) do
     assigns = %{name: name, value: Map.get(data, name, "")}
 
     ~H"""
@@ -478,7 +625,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     """
   end
 
-  defp render_field_input(name, _field_def, data, _relation_options) do
+  defp render_field_input(name, _field_def, data, _relation_options, _uploads, _prefix) do
     assigns = %{name: name, value: Map.get(data, name, "")}
 
     ~H"""

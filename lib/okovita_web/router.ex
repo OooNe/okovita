@@ -60,6 +60,7 @@ defmodule OkovitaWeb.Router do
       ] do
       scope "/tenants/:tenant_slug" do
         live "/api-keys", TenantLive.ApiKeys
+        live "/media", MediaLive.Index
         live "/models", ContentLive.ModelList
         live "/models/new", ContentLive.ModelBuilder
         live "/models/:id/edit", ContentLive.ModelBuilder

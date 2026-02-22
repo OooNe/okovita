@@ -267,6 +267,19 @@ defmodule Okovita.Tenants do
       ON "#{prefix}".timeline (inserted_at)
     """)
 
+    # Create media table
+    Repo.query!("""
+    CREATE TABLE IF NOT EXISTS "#{prefix}".media (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      file_name varchar(255) NOT NULL,
+      url varchar(1024) NOT NULL,
+      mime_type varchar(255) NOT NULL,
+      size integer,
+      inserted_at timestamp(0) WITHOUT TIME ZONE NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+      updated_at timestamp(0) WITHOUT TIME ZONE NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+    )
+    """)
+
     :ok
   end
 

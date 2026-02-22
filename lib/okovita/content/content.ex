@@ -9,6 +9,7 @@ defmodule Okovita.Content do
 
   alias Okovita.Content.Models
   alias Okovita.Content.Entries
+  alias Okovita.Content.MediaQueries
 
   # ── Models ────────────────────────────────────────────────────────
 
@@ -18,6 +19,14 @@ defmodule Okovita.Content do
   defdelegate get_model_by_slug(slug, prefix), to: Models
   defdelegate list_models(prefix), to: Models
 
+  # ── Media ─────────────────────────────────────────────────────────
+
+  defdelegate create_media(attrs, prefix), to: MediaQueries
+  defdelegate get_media!(id, prefix), to: MediaQueries
+  defdelegate get_media(id, prefix), to: MediaQueries
+  defdelegate get_media_by_ids(ids, prefix), to: MediaQueries
+  defdelegate list_media(prefix), to: MediaQueries
+
   # ── Entries ───────────────────────────────────────────────────────
 
   defdelegate create_entry(model_id, attrs, prefix, actor_id \\ nil), to: Entries
@@ -26,4 +35,5 @@ defmodule Okovita.Content do
   defdelegate get_entry(id, prefix), to: Entries
   defdelegate list_entries(model_id, prefix), to: Entries
   defdelegate populate_relations(entries, model, prefix, opts \\ []), to: Entries
+  defdelegate populate_media(entries, model, prefix), to: Entries
 end

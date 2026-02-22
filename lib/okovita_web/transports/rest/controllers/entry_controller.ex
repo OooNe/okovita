@@ -20,7 +20,9 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
         entries = Content.list_entries(model.id, prefix)
 
         populated_entries =
-          Content.populate_relations(entries, model, prefix, with_metadata: with_metadata)
+          entries
+          |> Content.populate_relations(model, prefix, with_metadata: with_metadata)
+          |> Content.populate_media(model, prefix)
 
         json(conn, Enum.map(populated_entries, &entry_json(&1, with_metadata)))
     end
@@ -33,7 +35,9 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
     with model when not is_nil(model) <- Content.get_model_by_slug(model_slug, prefix),
          entry when not is_nil(entry) <- Content.get_entry(id, prefix) do
       populated_entry =
-        Content.populate_relations(entry, model, prefix, with_metadata: with_metadata)
+        entry
+        |> Content.populate_relations(model, prefix, with_metadata: with_metadata)
+        |> Content.populate_media(model, prefix)
 
       json(conn, entry_json(populated_entry, with_metadata))
     else
@@ -62,9 +66,14 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
 
         case Content.create_entry(model.id, entry_attrs, prefix) do
           {:ok, entry} ->
+            populated_entry =
+              entry
+              |> Content.populate_relations(model, prefix, with_metadata: with_metadata)
+              |> Content.populate_media(model, prefix)
+
             conn
             |> put_status(:created)
-            |> json(entry_json(entry, with_metadata))
+            |> json(entry_json(populated_entry, with_metadata))
 
           {:error, %Ecto.Changeset{} = changeset} ->
             conn
@@ -91,7 +100,12 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
 
       case Content.update_entry(id, model.id, update_attrs, prefix) do
         {:ok, entry} ->
-          json(conn, entry_json(entry, with_metadata))
+          populated_entry =
+            entry
+            |> Content.populate_relations(model, prefix, with_metadata: with_metadata)
+            |> Content.populate_media(model, prefix)
+
+          json(conn, entry_json(populated_entry, with_metadata))
 
         {:error, :not_found} ->
           conn

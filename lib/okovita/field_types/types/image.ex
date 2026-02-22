@@ -11,11 +11,8 @@ defmodule Okovita.FieldTypes.Types.Image do
 
   @impl true
   def cast(value) when is_binary(value) do
-    if String.trim(value) == "" do
-      {:ok, nil}
-    else
-      {:ok, String.trim(value)}
-    end
+    cleaned = String.trim(value)
+    if cleaned == "", do: {:ok, nil}, else: {:ok, cleaned}
   end
 
   def cast(nil), do: {:ok, nil}
@@ -24,7 +21,14 @@ defmodule Okovita.FieldTypes.Types.Image do
   @impl true
   def validate(changeset, field_name, options) do
     changeset =
-      validate_format(changeset, field_name, ~r/^https?:\/\//, message: "must be a valid URL")
+      validate_change(changeset, field_name, fn _, value ->
+        # Ecto UUID regex check to ensure the media_id reference is a valid UUID format
+        if Ecto.UUID.cast(value) == :error do
+          [{field_name, "is not a valid media reference"}]
+        else
+          []
+        end
+      end)
 
     if max_length = options["max_length"] do
       validate_length(changeset, field_name, max: max_length)

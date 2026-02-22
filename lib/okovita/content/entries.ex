@@ -213,6 +213,51 @@ defmodule Okovita.Content.Entries do
     end
   end
 
+  @doc """
+  Populates media fields (`image` and `image_gallery`) for a single entry or list of entries.
+  Replaces `media_id` references with full media objects containing `url` and other metadata.
+  """
+  def populate_media(entries, model, prefix)
+
+  def populate_media(entries, model, prefix) when is_list(entries) do
+    media_keys = get_media_keys(model)
+
+    if Enum.empty?(media_keys) do
+      entries
+    else
+      # Collect all media IDs across all entries
+      all_media_ids =
+        entries
+        |> collect_media_ids_for_keys(media_keys)
+        |> Enum.uniq()
+
+      # Fetch all media in one batch
+      media_map =
+        Okovita.Content.get_media_by_ids(all_media_ids, prefix)
+        |> Enum.map(&{&1.id, &1})
+        |> Enum.into(%{})
+
+      Enum.map(entries, &do_populate_media(&1, media_keys, media_map))
+    end
+  end
+
+  def populate_media(%Entry{} = entry, model, prefix) do
+    media_keys = get_media_keys(model)
+
+    if Enum.empty?(media_keys) do
+      entry
+    else
+      media_ids = collect_media_ids_for_keys([entry], media_keys)
+
+      media_map =
+        Okovita.Content.get_media_by_ids(media_ids, prefix)
+        |> Enum.map(&{&1.id, &1})
+        |> Enum.into(%{})
+
+      do_populate_media(entry, media_keys, media_map)
+    end
+  end
+
   # ── Private helpers ───────────────────────────────────────────────
 
   defp get_relation_keys(model) do
@@ -240,6 +285,97 @@ defmodule Okovita.Content.Entries do
       end)
 
     %{entry | data: new_data}
+  end
+
+  defp get_media_keys(model) do
+    model.schema_definition
+    |> Enum.filter(fn {_key, attrs} -> attrs["field_type"] in ["image", "image_gallery"] end)
+    |> Enum.map(fn {key, attrs} -> {key, attrs["field_type"]} end)
+  end
+
+  defp collect_media_ids_for_keys(entries, media_keys) do
+    Enum.flat_map(entries, fn entry ->
+      Enum.flat_map(media_keys, fn
+        {key, "image"} ->
+          case Map.get(entry.data || %{}, key) do
+            id when is_binary(id) ->
+              if is_uuid?(id), do: [id], else: []
+
+            _ ->
+              []
+          end
+
+        {key, "image_gallery"} ->
+          gallery = Map.get(entry.data || %{}, key, [])
+
+          Enum.flat_map(gallery, fn
+            %{"media_id" => id} when is_binary(id) ->
+              if is_uuid?(id), do: [id], else: []
+
+            _ ->
+              []
+          end)
+      end)
+    end)
+  end
+
+  defp do_populate_media(entry, media_keys, media_map) do
+    new_data =
+      Enum.reduce(media_keys, entry.data || %{}, fn
+        {key, "image"}, acc_data ->
+          case Map.get(acc_data, key) do
+            id when is_binary(id) ->
+              media = if is_uuid?(id), do: media_map[id]
+
+              if media do
+                Map.put(acc_data, key, media_json(media))
+              else
+                acc_data
+              end
+
+            _ ->
+              acc_data
+          end
+
+        {key, "image_gallery"}, acc_data ->
+          gallery = Map.get(acc_data, key, [])
+
+          populated_gallery =
+            Enum.map(gallery, fn
+              %{"media_id" => id} = item when is_binary(id) ->
+                media = if is_uuid?(id), do: media_map[id]
+
+                if media do
+                  # Convert atoms to strings for JSON merging
+                  media_data = Map.new(media_json(media), fn {k, v} -> {Atom.to_string(k), v} end)
+                  Map.merge(item, media_data)
+                else
+                  item
+                end
+
+              item ->
+                item
+            end)
+
+          Map.put(acc_data, key, populated_gallery)
+      end)
+
+    %{entry | data: new_data}
+  end
+
+  defp is_uuid?(id) when is_binary(id) do
+    match?({:ok, _}, Ecto.UUID.cast(id))
+  end
+
+  defp is_uuid?(_), do: false
+
+  defp media_json(media) do
+    %{
+      id: media.id,
+      url: media.url,
+      file_name: media.file_name,
+      mime_type: media.mime_type
+    }
   end
 
   defp entry_json(entry, with_metadata) do

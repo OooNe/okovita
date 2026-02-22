@@ -12,16 +12,16 @@ defmodule Okovita.FieldTypes.Types.ImageGallery do
 
   @impl true
   def cast(value) when is_list(value) do
-    # Gracefully handle upgrades from lists of strings to lists of maps
+    # Gracefully handle upgrades from lists of strings or legacy URLs to lists of media dictionaries
     cleaned =
       value
       |> Enum.reject(&is_nil/1)
       |> Enum.with_index()
       |> Enum.map(fn
         {item, idx} when is_binary(item) ->
-          %{"image_url" => String.trim(item), "index" => idx}
+          %{"media_id" => String.trim(item), "index" => idx}
 
-        {%{"image_url" => url} = item, idx} when is_binary(url) ->
+        {%{"media_id" => id} = item, idx} when is_binary(id) ->
           # Ensure index is an integer
           index =
             case Map.get(item, "index", idx) do
@@ -30,9 +30,9 @@ defmodule Okovita.FieldTypes.Types.ImageGallery do
               _ -> idx
             end
 
-          Map.merge(item, %{"image_url" => String.trim(url), "index" => index})
+          Map.merge(item, %{"media_id" => String.trim(id), "index" => index})
 
-        {%{image_url: url} = item, idx} when is_binary(url) ->
+        {%{media_id: id} = item, idx} when is_binary(id) ->
           # Handle atom keys just in case
           index =
             case Map.get(item, :index, idx) do
@@ -42,14 +42,28 @@ defmodule Okovita.FieldTypes.Types.ImageGallery do
             end
 
           item
-          |> Map.put("image_url", String.trim(url))
+          |> Map.put("media_id", String.trim(id))
           |> Map.put("index", index)
-          |> Map.drop([:image_url, :index])
+          |> Map.drop([:media_id, :index])
+
+        # Legacy URL migration
+        {%{"image_url" => id} = item, idx} when is_binary(id) ->
+          index =
+            case Map.get(item, "index", idx) do
+              i when is_integer(i) -> i
+              s when is_binary(s) -> String.to_integer(s)
+              _ -> idx
+            end
+
+          item
+          |> Map.put("media_id", String.trim(id))
+          |> Map.put("index", index)
+          |> Map.drop(["image_url"])
 
         _ ->
           nil
       end)
-      |> Enum.reject(fn item -> is_nil(item) || item["image_url"] == "" end)
+      |> Enum.reject(fn item -> is_nil(item) || item["media_id"] == "" end)
       |> Enum.sort_by(& &1["index"])
       # Re-index to ensure contiguous sequential index
       |> Enum.with_index()
@@ -63,18 +77,18 @@ defmodule Okovita.FieldTypes.Types.ImageGallery do
 
   @impl true
   def validate(changeset, field_name, options) do
-    # Validate each URL in the array of maps
+    # Validate each ID in the array of maps
     changeset =
       validate_change(changeset, field_name, fn _, items ->
-        invalid_urls =
-          Enum.reject(items, fn %{"image_url" => url} ->
-            is_binary(url) && Regex.match?(~r/^https?:\/\//, url)
+        invalid_ids =
+          Enum.reject(items, fn %{"media_id" => id} ->
+            is_binary(id) && Ecto.UUID.cast(id) != :error
           end)
 
-        if invalid_urls == [] do
+        if invalid_ids == [] do
           []
         else
-          [{field_name, "contain invalid URLs"}]
+          [{field_name, "contain invalid media references"}]
         end
       end)
 
