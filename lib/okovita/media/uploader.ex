@@ -40,4 +40,16 @@ defmodule Okovita.Media.Uploader do
         {:error, reason}
     end
   end
+
+  @doc """
+  Deletes an object from S3.
+  """
+  def delete(file_name) do
+    bucket = Application.get_env(:okovita, :s3_bucket, "okovita-content")
+
+    case ExAws.S3.delete_object(bucket, file_name) |> ExAws.request() do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
 end

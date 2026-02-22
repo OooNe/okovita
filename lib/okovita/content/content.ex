@@ -26,6 +26,14 @@ defmodule Okovita.Content do
   defdelegate get_media(id, prefix), to: MediaQueries
   defdelegate get_media_by_ids(ids, prefix), to: MediaQueries
   defdelegate list_media(prefix), to: MediaQueries
+  defdelegate media_in_use?(media_id, prefix), to: MediaQueries
+  defdelegate any_media_in_use?(media_ids, prefix), to: MediaQueries
+  defdelegate delete_media(media_id, prefix), to: MediaQueries
+  defdelegate delete_all_media(media_ids, prefix), to: MediaQueries
+
+  defdelegate process_and_create_media(path, name, type, prefix),
+    to: Okovita.Content.MediaUploads,
+    as: :process_and_create
 
   # ── Entries ───────────────────────────────────────────────────────
 
