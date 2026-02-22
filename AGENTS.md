@@ -108,4 +108,28 @@ custom classes must fully style the input
 - **Always** invoke `mix ecto.gen.migration migration_name_using_underscores` when generating migration files, so the correct timestamp and conventions are applied
 <!-- phoenix:ecto-end -->
 
+## Media Library guidelines
+
+The media subsystem is organized in three layers. **Always respect these boundaries.**
+
+### Layer map
+
+| Layer | Module | Responsibility |
+|---|---|---|
+| Storage | `Okovita.Media.Uploader` | Raw S3 `put_object` / `delete_object` via ExAws. No DB knowledge. |
+| Domain | `Okovita.Content.MediaUploads` | Orchestrates Uploader → `create_media`. Also owns `apply_upload_results/2` and `upload_error_label/1`. |
+| Query | `Okovita.Content.MediaQueries` | Ecto CRUD for `Media` records; calls `Uploader.delete/1` on destruction. |
+| Context | `Okovita.Content` | Public facade — `defdelegate` only, no logic here. |
+| UI | `OkovitaWeb.MediaComponents` | `upload_toast/1`, `delete_confirmation_modal/1`. Reusable across LiveViews. |
+| Helpers | `OkovitaWeb.FormatHelpers` | Presentation utilities (`format_size/1`). Import in any LiveView or component. |
+
+### Rules
+
+- **Never call `Okovita.Media.Uploader` directly from a LiveView.** Always go through `Okovita.Content.MediaUploads` or the `Okovita.Content` context.
+- **Always call `Okovita.Content.MediaUploads.apply_upload_results/2` for flash messages** after `consume_uploaded_entries/3`. Do not write custom flash logic for upload results.
+- **Error labels** for LiveView upload errors (`:too_large`, `:not_accepted`, `:too_many_files`) live in `MediaUploads.upload_error_label/1`. Never duplicate these strings.
+- The LiveView dropzone overlay activates on the CSS class `phx-drop-target-active` (added by Phoenix when dragging files over a `phx-drop-target` element). Use the Tailwind arbitrary variant `group-[.phx-drop-target-active]:flex` on the overlay div.
+- When adding file upload to a new LiveView, reuse `<.upload_toast upload={@uploads.images} />` from `OkovitaWeb.MediaComponents`. Do **not** copy-paste the upload toast HTML.
+- `allow_upload` must use `auto_upload: true` and `progress: &handle_progress/3` (not `progress_event`). The `handle_progress/3` callback is where `consume_uploaded_entries` is called.
+
 <!-- usage-rules-end -->

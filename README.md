@@ -7,6 +7,7 @@
 - **Prefix-based multi-tenancy** — each tenant gets its own PostgreSQL schema (`tenant_{id}`)
 - **Dynamic content models** — define content types with JSON schema definitions at runtime
 - **Field type registry** — 8 built-in types (text, textarea, number, integer, boolean, enum, date, datetime), extensible via behaviour
+- **Media Library** — S3-backed file management with drag-and-drop upload, batch operations, and media-in-use safety checks
 - **Sync & async pipelines** — data transforms (trim, slugify) before storage, with Oban-powered async workers
 - **Config-driven transport layer** — REST by default, extensible to GraphQL/gRPC without code changes
 - **Full audit trail** — every content mutation logged in a timeline table
@@ -83,16 +84,26 @@ okovita/
 │   │   ├── tenants/          # Tenant management
 │   │   ├── auth/             # Admin authentication
 │   │   ├── field_types/      # Type registry & implementations
-│   │   ├── content/          # Models, entries, dynamic changeset
+│   │   ├── content/          # Models, entries, media, dynamic changeset
+│   │   │   ├── media_queries.ex   # DB queries for Media records
+│   │   │   └── media_uploads.ex  # S3 + DB orchestration, upload helpers
+│   │   ├── media/
+│   │   │   └── uploader.ex   # Raw S3 put/delete via ExAws
 │   │   ├── pipeline/         # Sync data transforms
 │   │   └── timeline/         # Audit log
 │   └── okovita_web/          # Transport layer
 │       ├── plugs/            # TenantPlug, AuthPlug
 │       ├── transports/rest/  # REST controllers
+│       ├── components/
+│       │   ├── core_components.ex    # Generic inputs, buttons, labels
+│       │   └── media_components.ex  # upload_toast, delete_confirmation_modal
+│       ├── helpers/
+│       │   └── format_helpers.ex    # format_size/1 and similar
 │       └── live/admin/       # LiveView dashboard
+│           └── media_live/   # Media Library LiveView
 ├── priv/repo/migrations/
 │   ├── public/               # Global schema migrations
-│   └── tenant/               # Per-tenant migrations
+│   └── tenant/               # Per-tenant migrations (includes media table)
 └── test/
 ```
 
@@ -153,7 +164,34 @@ Okovita is designed for extensibility. The following can be added without modify
 - **New transports** (GraphQL, gRPC) → implement `Okovita.Transport.Behaviour`
 - **Custom pipelines** → implement `Okovita.Pipeline.Behaviour`
 - **Publishing workflows** → field_type plugin or Oban scheduler
-- **Asset management** → separate `Okovita.Assets` context with S3
+- **Additional upload targets** → reuse `Okovita.Content.MediaUploads` from any LiveView with `consume_uploaded_entries/3`
+
+## Media Library
+
+The Media Library (`/admin/media`) provides per-tenant file management:
+
+- **Drag & drop upload** — drop files anywhere on the page; uses LiveView's `phx-drop-target` with a full-screen overlay (`phx-drop-target-active`)
+- **Auto-upload** — files upload to S3 immediately after selection, no manual submit required
+- **Batch selection & deletion** — select multiple items with checkboxes; confirm modal warns if any file is in use by a content entry
+- **S3 sync on delete** — deleting a media record also removes the object from the S3 bucket via `Okovita.Media.Uploader.delete/1`
+
+### Reusing upload logic in other LiveViews
+
+```elixir
+import OkovitaWeb.MediaComponents  # <.upload_toast />, <.delete_confirmation_modal />
+import OkovitaWeb.FormatHelpers    # format_size/1
+alias Okovita.Content.MediaUploads
+
+# In handle_progress/3:
+results = consume_uploaded_entries(socket, :images, fn %{path: path}, entry ->
+  case MediaUploads.process_and_create(path, entry.client_name, entry.client_type, prefix) do
+    {:ok, media} -> {:ok, {:ok, media.id}}
+    {:error, _}  -> {:ok, {:error, "Błąd: #{entry.client_name}"}}
+  end
+end)
+
+socket |> MediaUploads.apply_upload_results(results)
+```
 
 ## License
 
