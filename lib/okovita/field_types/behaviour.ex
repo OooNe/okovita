@@ -6,6 +6,12 @@ defmodule Okovita.FieldTypes.Behaviour do
   - `primitive_type/0` — the Ecto primitive used for schemaless changeset
   - `cast/1` — coerce raw input to the correct type
   - `validate/3` — apply field-type-specific validations to a changeset
+
+  An optional fourth callback `editor_component/0` may be implemented to
+  declare the Phoenix.Component module used to render this field's editor UI.
+  The convention (used automatically by `Registry.editor_for/1`) is that if
+  the module `Foo.FieldType` does not declare `editor_component/0`, the
+  registry will look for `Foo.Editor` by module naming convention.
   """
 
   @doc "Returns the Ecto primitive type (e.g. `:string`, `:integer`, `:float`, `:boolean`, `:date`, `:utc_datetime`)."
@@ -28,4 +34,12 @@ defmodule Okovita.FieldTypes.Behaviour do
               field_name :: atom(),
               options :: map()
             ) :: Ecto.Changeset.t()
+
+  @doc """
+  Returns the Phoenix.Component module that renders the editor UI for this field type.
+  Optional: if not implemented, `Registry.editor_for/1` falls back to the naming
+  convention `<FieldTypeModule>.Editor` (e.g. `Okovita.FieldTypes.Image.Editor`).
+  """
+  @callback editor_component() :: module()
+  @optional_callbacks [editor_component: 0]
 end

@@ -1,9 +1,9 @@
 defmodule Okovita.FieldTypes.TypesTest do
   use ExUnit.Case, async: true
 
-  alias Okovita.FieldTypes.Types.{Text, Textarea, Number, Boolean, Date, Datetime}
-  alias Okovita.FieldTypes.Types.Integer, as: IntegerType
-  alias Okovita.FieldTypes.Types.Enum, as: EnumType
+  alias Okovita.FieldTypes.{Text, Textarea, Number, Boolean, Date, Datetime}
+  alias Okovita.FieldTypes.Integer, as: IntegerType
+  alias Okovita.FieldTypes.Enum, as: EnumType
 
   # ── Text ──────────────────────────────────────────────────────────
 
@@ -41,6 +41,10 @@ defmodule Okovita.FieldTypes.TypesTest do
 
       assert Text.validate(cs, :title, %{}).valid?
     end
+
+    test "editor_component/0 returns Text.Editor" do
+      assert Text.editor_component() == Okovita.FieldTypes.Text.Editor
+    end
   end
 
   # ── Textarea ──────────────────────────────────────────────────────
@@ -53,6 +57,10 @@ defmodule Okovita.FieldTypes.TypesTest do
     test "casts and validates like Text" do
       assert {:ok, "body"} = Textarea.cast("body")
       assert :error = Textarea.cast(42)
+    end
+
+    test "editor_component/0 returns Textarea.Editor" do
+      assert Textarea.editor_component() == Okovita.FieldTypes.Textarea.Editor
     end
   end
 
@@ -142,7 +150,7 @@ defmodule Okovita.FieldTypes.TypesTest do
       assert :error = Boolean.cast(42)
     end
 
-    test "validate is a no-op" do
+    test "validate is a no-op (inherited from Base)" do
       cs =
         {%{}, %{flag: :boolean}}
         |> Ecto.Changeset.cast(%{flag: true}, [:flag])

@@ -1,6 +1,6 @@
-defmodule Okovita.FieldTypes.Types.Date do
+defmodule Okovita.FieldTypes.Date do
   @moduledoc "Date field type. No additional validations."
-  @behaviour Okovita.FieldTypes.Behaviour
+  use Okovita.FieldTypes.Base
 
   @impl true
   def primitive_type, do: :date
@@ -17,7 +17,4 @@ defmodule Okovita.FieldTypes.Types.Date do
 
   def cast(nil), do: {:ok, nil}
   def cast(_), do: :error
-
-  @impl true
-  def validate(changeset, _field_name, _options), do: changeset
 end

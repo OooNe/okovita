@@ -346,9 +346,7 @@ defmodule Okovita.Content.Entries do
                 media = if is_uuid?(id), do: media_map[id]
 
                 if media do
-                  # Convert atoms to strings for JSON merging
-                  media_data = Map.new(media_json(media), fn {k, v} -> {Atom.to_string(k), v} end)
-                  Map.merge(item, media_data)
+                  Map.merge(item, media_json(media))
                 else
                   item
                 end
@@ -371,10 +369,10 @@ defmodule Okovita.Content.Entries do
 
   defp media_json(media) do
     %{
-      id: media.id,
-      url: media.url,
-      file_name: media.file_name,
-      mime_type: media.mime_type
+      "id" => media.id,
+      "url" => media.url,
+      "file_name" => media.file_name,
+      "mime_type" => media.mime_type
     }
   end
 

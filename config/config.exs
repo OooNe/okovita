@@ -54,17 +54,18 @@ config :phoenix, :json_library, Jason
 
 # Field types registry — string name → module mapping
 config :okovita, :field_types, %{
-  "text" => Okovita.FieldTypes.Types.Text,
-  "textarea" => Okovita.FieldTypes.Types.Textarea,
-  "number" => Okovita.FieldTypes.Types.Number,
-  "integer" => Okovita.FieldTypes.Types.Integer,
-  "boolean" => Okovita.FieldTypes.Types.Boolean,
-  "enum" => Okovita.FieldTypes.Types.Enum,
-  "date" => Okovita.FieldTypes.Types.Date,
-  "datetime" => Okovita.FieldTypes.Types.Datetime,
-  "relation" => Okovita.FieldTypes.Types.Relation,
-  "image" => Okovita.FieldTypes.Types.Image,
-  "image_gallery" => Okovita.FieldTypes.Types.ImageGallery
+  "text" => Okovita.FieldTypes.Text,
+  "textarea" => Okovita.FieldTypes.Textarea,
+  "number" => Okovita.FieldTypes.Number,
+  "integer" => Okovita.FieldTypes.Integer,
+  "boolean" => Okovita.FieldTypes.Boolean,
+  "enum" => Okovita.FieldTypes.Enum,
+  "date" => Okovita.FieldTypes.Date,
+  "datetime" => Okovita.FieldTypes.Datetime,
+  "relation" => Okovita.FieldTypes.Relation,
+  "image" => Okovita.FieldTypes.Image,
+  "image_gallery" => Okovita.FieldTypes.ImageGallery,
+  "rich_text" => Okovita.FieldTypes.RichText
 }
 
 # Global sync pipelines — applied to all string values in entry data

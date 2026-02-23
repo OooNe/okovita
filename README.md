@@ -6,8 +6,8 @@
 
 - **Prefix-based multi-tenancy** — each tenant gets its own PostgreSQL schema (`tenant_{id}`)
 - **Dynamic content models** — define content types with JSON schema definitions at runtime
-- **Field type registry** — 8 built-in types (text, textarea, number, integer, boolean, enum, date, datetime), extensible via behaviour
-- **Media Library** — S3-backed file management with drag-and-drop upload, batch operations, and media-in-use safety checks
+- **Field type registry** — 12 built-in types, extensible via behaviour + vertical-slice structure
+- **Media Library** — S3-backed file management with drag-and-drop upload, media picker, batch operations
 - **Sync & async pipelines** — data transforms (trim, slugify) before storage, with Oban-powered async workers
 - **Config-driven transport layer** — REST by default, extensible to GraphQL/gRPC without code changes
 - **Full audit trail** — every content mutation logged in a timeline table
@@ -83,10 +83,20 @@ okovita/
 │   ├── okovita/              # Business logic (contexts)
 │   │   ├── tenants/          # Tenant management
 │   │   ├── auth/             # Admin authentication
-│   │   ├── field_types/      # Type registry & implementations
+│   │   ├── field_types/      # Type registry & vertical-slice implementations
+│   │   │   ├── behaviour.ex        # Behaviour contract (primitive_type, cast, validate, editor_component?)
+│   │   │   ├── registry.ex         # Config-driven Agent registry, editor_for/1
+│   │   │   ├── text/               # ← example vertical slice
+│   │   │   │   ├── field_type.ex   # Okovita.FieldTypes.Text (cast, validate)
+│   │   │   │   └── editor.ex       # Okovita.FieldTypes.Text.Editor (Phoenix.Component)
+│   │   │   ├── image/
+│   │   │   ├── image_gallery/
+│   │   │   ├── rich_text/          # Stub — JS hook TBD
+│   │   │   └── types/              # @deprecated aliases → new modules
 │   │   ├── content/          # Models, entries, media, dynamic changeset
-│   │   │   ├── media_queries.ex   # DB queries for Media records
-│   │   │   └── media_uploads.ex  # S3 + DB orchestration, upload helpers
+│   │   │   ├── entry_data_normalizer.ex  # Centralizes media data coercion (mixed atom/string keys)
+│   │   │   ├── media_queries.ex          # DB queries for Media records
+│   │   │   └── media_uploads.ex          # S3 + DB orchestration, upload helpers
 │   │   ├── media/
 │   │   │   └── uploader.ex   # Raw S3 put/delete via ExAws
 │   │   ├── pipeline/         # Sync data transforms
@@ -96,15 +106,119 @@ okovita/
 │       ├── transports/rest/  # REST controllers
 │       ├── components/
 │       │   ├── core_components.ex    # Generic inputs, buttons, labels
-│       │   └── media_components.ex  # upload_toast, delete_confirmation_modal
-│       ├── helpers/
-│       │   └── format_helpers.ex    # format_size/1 and similar
+│       │   └── media_components.ex   # upload_toast, media_picker_modal
 │       └── live/admin/       # LiveView dashboard
-│           └── media_live/   # Media Library LiveView
+│           └── content_live/
+│               └── entry_form.ex     # Data-driven form — dispatches to editor components
 ├── priv/repo/migrations/
 │   ├── public/               # Global schema migrations
 │   └── tenant/               # Per-tenant migrations (includes media table)
 └── test/
+    └── okovita/content/
+        └── entry_data_normalizer_test.exs
+```
+
+## Field Types
+
+### Architecture: Vertical Slices
+
+Each field type is a self-contained directory with two files:
+
+```
+lib/okovita/field_types/<type>/
+  field_type.ex   ← backend: cast, validate (Okovita.FieldTypes.<Type>)
+  editor.ex       ← frontend: Phoenix.Component render/1 (Okovita.FieldTypes.<Type>.Editor)
+```
+
+The **Registry** maps string names to modules, and resolves the editor component automatically by convention (`Module.Editor`):
+
+```elixir
+# config/config.exs
+config :okovita, :field_types, %{
+  "text"          => Okovita.FieldTypes.Text,
+  "textarea"      => Okovita.FieldTypes.Textarea,
+  "number"        => Okovita.FieldTypes.Number,
+  "integer"       => Okovita.FieldTypes.Integer,
+  "boolean"       => Okovita.FieldTypes.Boolean,
+  "enum"          => Okovita.FieldTypes.Enum,
+  "date"          => Okovita.FieldTypes.Date,
+  "datetime"      => Okovita.FieldTypes.Datetime,
+  "relation"      => Okovita.FieldTypes.Relation,
+  "image"         => Okovita.FieldTypes.Image,
+  "image_gallery" => Okovita.FieldTypes.ImageGallery,
+  "rich_text"     => Okovita.FieldTypes.RichText       # ← stub, JS hook TBD
+}
+```
+
+### Adding a New Field Type
+
+1. Create the directory and two files:
+
+   ```
+   lib/okovita/field_types/my_type/
+     field_type.ex
+     editor.ex
+   ```
+
+2. Implement `Okovita.FieldTypes.Behaviour` in `field_type.ex`:
+
+   ```elixir
+   defmodule Okovita.FieldTypes.MyType do
+     @behaviour Okovita.FieldTypes.Behaviour
+
+     @impl true
+     def primitive_type, do: :string   # Ecto type
+
+     @impl true
+     def cast(value), do: {:ok, value}
+
+     @impl true
+     def validate(changeset, _field, _opts), do: changeset
+   end
+   ```
+
+3. Implement the editor component in `editor.ex`:
+
+   ```elixir
+   defmodule Okovita.FieldTypes.MyType.Editor do
+     use Phoenix.Component
+
+     attr :name, :string, required: true
+     attr :value, :string, default: ""
+
+     def render(assigns) do
+       ~H"""
+       <input type="text" name={@name} value={@value} />
+       """
+     end
+   end
+   ```
+
+4. Register in `config/config.exs`:
+
+   ```elixir
+   config :okovita, :field_types, Map.put(existing_map, "my_type", Okovita.FieldTypes.MyType)
+   ```
+
+No changes to `EntryForm` or any other module required — the registry resolves `MyType.Editor` automatically.
+
+### Behaviour Reference
+
+```elixir
+@callback primitive_type() :: atom()
+# e.g. :string | :integer | :float | :boolean | :date | :utc_datetime | :map | {:array, :map}
+
+@callback cast(value :: any()) :: {:ok, any()} | :error
+
+@callback validate(
+  changeset :: Ecto.Changeset.t(),
+  field_name :: atom(),
+  options :: map()       # from schema_definition, e.g. %{"max_length" => 255, "one_of" => [...]}
+) :: Ecto.Changeset.t()
+
+# Optional — override editor_component/0 if you want an explicit module name:
+@callback editor_component() :: module()
+@optional_callbacks [editor_component: 0]
 ```
 
 ## API Usage
@@ -137,49 +251,33 @@ Response format:
 Key configuration in `config/config.exs`:
 
 ```elixir
-# Field types (extensible)
-config :okovita, :field_types, [
-  Okovita.FieldTypes.Text,
-  Okovita.FieldTypes.Textarea,
+# Field types registry — string key → module
+config :okovita, :field_types, %{
+  "text" => Okovita.FieldTypes.Text,
   # ...
-]
+}
 
-# Sync pipelines
-config :okovita, :sync_pipelines, [
-  trim: Okovita.Pipeline.Sync.Trim,
-  slugify: Okovita.Pipeline.Sync.Slugify
-]
+# Sync pipelines — applied to all string values before persistence
+config :okovita, :sync_pipelines, trim: Okovita.Pipeline.Sync.Trim
 
 # Active transports
-config :okovita, :transports, [
-  Okovita.Transports.REST
-]
+config :okovita, :transports, [Okovita.Transports.REST]
 ```
-
-## Extension Points
-
-Okovita is designed for extensibility. The following can be added without modifying core:
-
-- **Custom field types** → implement `Okovita.FieldTypes.Behaviour`
-- **New transports** (GraphQL, gRPC) → implement `Okovita.Transport.Behaviour`
-- **Custom pipelines** → implement `Okovita.Pipeline.Behaviour`
-- **Publishing workflows** → field_type plugin or Oban scheduler
-- **Additional upload targets** → reuse `Okovita.Content.MediaUploads` from any LiveView with `consume_uploaded_entries/3`
 
 ## Media Library
 
 The Media Library (`/admin/media`) provides per-tenant file management:
 
-- **Drag & drop upload** — drop files anywhere on the page; uses LiveView's `phx-drop-target` with a full-screen overlay (`phx-drop-target-active`)
+- **Drag & drop upload** — drop files anywhere on the page; uses LiveView's `phx-drop-target` with a full-screen overlay
 - **Auto-upload** — files upload to S3 immediately after selection, no manual submit required
-- **Batch selection & deletion** — select multiple items with checkboxes; confirm modal warns if any file is in use by a content entry
-- **S3 sync on delete** — deleting a media record also removes the object from the S3 bucket via `Okovita.Media.Uploader.delete/1`
+- **Media Picker** — modal for selecting existing media from the library, used by `image` and `image_gallery` fields
+- **Batch selection & deletion** — select multiple items; confirm modal warns if any file is in use
+- **S3 sync on delete** — deleting a media record also removes the object from S3
 
 ### Reusing upload logic in other LiveViews
 
 ```elixir
-import OkovitaWeb.MediaComponents  # <.upload_toast />, <.delete_confirmation_modal />
-import OkovitaWeb.FormatHelpers    # format_size/1
+import OkovitaWeb.MediaComponents  # <.upload_toast />, <.media_picker_modal />
 alias Okovita.Content.MediaUploads
 
 # In handle_progress/3:
@@ -192,6 +290,36 @@ end)
 
 socket |> MediaUploads.apply_upload_results(results)
 ```
+
+## Data Normalization
+
+`Okovita.Content.EntryDataNormalizer` centralizes all media data coercion logic.
+
+The system handles data coming from two directions with different key formats:
+- **Database / `populate_media`** → atom-key maps: `%{id: "uuid", url: "https://..."}`
+- **LiveView form params / media picker** → string-key maps: `%{"id" => "uuid", "url" => "https://..."}`
+
+```elixir
+alias Okovita.Content.EntryDataNormalizer
+
+# Extract media ID regardless of key format
+EntryDataNormalizer.extract_image_id(%{id: "uuid-123"})     # => "uuid-123"
+EntryDataNormalizer.extract_image_id(%{"id" => "uuid-123"}) # => "uuid-123"
+EntryDataNormalizer.extract_image_id("uuid-123")            # => "uuid-123"
+
+# Normalize gallery list (handles legacy strings, mixed atom/string keys, re-indexing)
+EntryDataNormalizer.normalize_gallery(["uuid-1", "uuid-2"])
+# => [%{"media_id" => "uuid-1", "index" => 0}, %{"media_id" => "uuid-2", "index" => 1}]
+```
+
+## Extension Points
+
+Okovita is designed for extensibility. The following can be added without modifying core:
+
+- **Custom field types** → add a `<type>/` directory with `field_type.ex` + `editor.ex`, register in config
+- **New transports** (GraphQL, gRPC) → implement `Okovita.Transport.Behaviour`
+- **Custom pipelines** → implement `Okovita.Pipeline.Behaviour`
+- **Publishing workflows** → field_type plugin or Oban scheduler
 
 ## License
 

@@ -1,6 +1,6 @@
-defmodule Okovita.FieldTypes.Types.Boolean do
+defmodule Okovita.FieldTypes.Boolean do
   @moduledoc "Boolean field type. No additional validations."
-  @behaviour Okovita.FieldTypes.Behaviour
+  use Okovita.FieldTypes.Base
 
   @impl true
   def primitive_type, do: :boolean
@@ -15,7 +15,4 @@ defmodule Okovita.FieldTypes.Types.Boolean do
   def cast(0), do: {:ok, false}
   def cast(nil), do: {:ok, nil}
   def cast(_), do: :error
-
-  @impl true
-  def validate(changeset, _field_name, _options), do: changeset
 end

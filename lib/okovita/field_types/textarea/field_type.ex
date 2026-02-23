@@ -1,6 +1,8 @@
-defmodule Okovita.FieldTypes.Types.Textarea do
+defmodule Okovita.FieldTypes.Textarea do
   @moduledoc "Long text field type. Validates `max_length`."
-  @behaviour Okovita.FieldTypes.Behaviour
+  use Okovita.FieldTypes.Base
+
+  import Ecto.Changeset
 
   @impl true
   def primitive_type, do: :string
@@ -14,7 +16,7 @@ defmodule Okovita.FieldTypes.Types.Textarea do
   def validate(changeset, field_name, options) do
     case Map.get(options, "max_length") do
       nil -> changeset
-      max -> Ecto.Changeset.validate_length(changeset, field_name, max: max)
+      max -> validate_length(changeset, field_name, max: max)
     end
   end
 end

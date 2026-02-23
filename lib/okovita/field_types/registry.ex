@@ -21,7 +21,7 @@ defmodule Okovita.FieldTypes.Registry do
   ## Example
 
       iex> Okovita.FieldTypes.Registry.get!("text")
-      Okovita.FieldTypes.Types.Text
+      Okovita.FieldTypes.Text
   """
   @spec get!(String.t()) :: module()
   def get!(type_name) when is_binary(type_name) do
@@ -37,10 +37,42 @@ defmodule Okovita.FieldTypes.Registry do
   ## Example
 
       iex> Okovita.FieldTypes.Registry.registered_types()
-      ["boolean", "date", "datetime", "enum", "integer", "number", "text", "textarea"]
+      ["boolean", "date", "datetime", "enum", "image", "image_gallery", "integer", "number", "relation", "text", "textarea"]
   """
   @spec registered_types() :: [String.t()]
   def registered_types do
     Agent.get(__MODULE__, &Map.keys(&1)) |> Enum.sort()
+  end
+
+  @doc """
+  Returns the Phoenix.Component editor module for the given field type name, or `nil` if not found.
+
+  Resolution order:
+  1. If the field type module exports `editor_component/0`, use its return value.
+  2. Otherwise, look for `<FieldTypeModule>.Editor` by naming convention.
+  3. Return `nil` if neither is found.
+
+  ## Example
+
+      iex> Okovita.FieldTypes.Registry.editor_for("image")
+      Okovita.FieldTypes.Image.Editor
+  """
+  @spec editor_for(String.t()) :: module() | nil
+  def editor_for(type_name) when is_binary(type_name) do
+    case Agent.get(__MODULE__, &Map.get(&1, type_name)) do
+      nil ->
+        nil
+
+      module ->
+        cond do
+          function_exported?(module, :editor_component, 0) ->
+            module.editor_component()
+
+          true ->
+            # Convention: Okovita.FieldTypes.Image -> Okovita.FieldTypes.Image.Editor
+            editor = Module.concat(module, Editor)
+            if Code.ensure_loaded?(editor), do: editor, else: nil
+        end
+    end
   end
 end
