@@ -85,7 +85,8 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     prefix = socket.assigns.prefix
     fields = socket.assigns.fields
 
-    errors_list = validate_fields(fields)
+    current_model_slug = if socket.assigns.model, do: socket.assigns.model.slug, else: nil
+    errors_list = validate_fields(fields, current_model_slug)
 
     if Enum.empty?(errors_list) do
       schema_definition =
@@ -206,13 +207,18 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
                   </div>
 
                   <div class="col-span-1 lg:col-span-1">
-                    <%= if field["field_type"] == "relation" do %>
+                    <%= if field["field_type"] in ["relation", "relation_many"] do %>
                       <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">Target <span class="text-red-500">*</span></label>
                       <select name={"fields[#{field["id"]}][target_model]"} required
                               phx-change="update-field" phx-value-id={field["id"]} phx-value-attr="target_model"
                               class="block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm bg-indigo-50">
                         <option value="">-- Model --</option>
-                        <%= Phoenix.HTML.Form.options_for_select(Enum.map(@available_models, &{&1.name, &1.slug}), field["target_model"]) %>
+                        <%= Phoenix.HTML.Form.options_for_select(
+                              @available_models
+                              |> Enum.reject(fn m -> @model && m.id == @model.id end)
+                              |> Enum.map(&{&1.name, &1.slug}),
+                              field["target_model"]
+                            ) %>
                       </select>
                     <% end %>
 
@@ -258,7 +264,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     end)
   end
 
-  defp validate_fields(fields) do
+  defp validate_fields(fields, current_model_slug) do
     keys = Enum.map(fields, & &1["key"])
 
     duplicate_keys =
@@ -281,8 +287,14 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
         String.trim(f["label"]) == "" ->
           ["Label cannot be empty for field '#{f["key"]}'" | errors]
 
-        f["field_type"] == "relation" and String.trim(f["target_model"] || "") == "" ->
+        f["field_type"] in ["relation", "relation_many"] and
+            String.trim(f["target_model"] || "") == "" ->
           ["Relation field '#{f["key"]}' requires a target model" | errors]
+
+        f["field_type"] in ["relation", "relation_many"] and
+          current_model_slug != nil and
+            f["target_model"] == current_model_slug ->
+          ["Relation field '#{f["key"]}' cannot reference the model itself" | errors]
 
         true ->
           errors

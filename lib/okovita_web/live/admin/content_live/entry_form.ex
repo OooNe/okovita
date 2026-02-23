@@ -309,7 +309,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     data =
       model.schema_definition
       |> Enum.into(%{}, fn {field_name, def} ->
-        fallback = if def["field_type"] == "image_gallery", do: [], else: ""
+        fallback =
+          if def["field_type"] in ["image_gallery", "relation_many"], do: [], else: ""
 
         {field_name,
          Map.get(upload_data_mapped, field_name, Map.get(params, field_name, fallback))}
@@ -411,7 +412,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
   # Builds the assigns map to pass to an editor component for a given field.
   defp build_field_assigns(field_name, field_def, assigns) do
     field_atom = String.to_existing_atom(field_name)
-    upload = assigns.uploads[field_atom]
+    upload = Map.get(assigns, :uploads, %{})[field_atom]
     raw_value = Map.get(assigns.data, field_name)
 
     base = %{
@@ -442,6 +443,12 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
       "relation" ->
         Map.merge(base, %{
+          options: Map.get(assigns.relation_options, field_name, [])
+        })
+
+      "relation_many" ->
+        Map.merge(base, %{
+          value: raw_value || [],
           options: Map.get(assigns.relation_options, field_name, [])
         })
 
@@ -483,7 +490,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
   defp load_relation_options(model, prefix) do
     Enum.reduce(model.schema_definition || %{}, %{}, fn {field_name, def}, acc ->
-      if def["field_type"] == "relation" and def["target_model"] do
+      if def["field_type"] in ["relation", "relation_many"] and def["target_model"] do
         target_model = Content.get_model_by_slug(def["target_model"], prefix)
 
         if target_model do

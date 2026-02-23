@@ -262,26 +262,54 @@ defmodule Okovita.Content.Entries do
 
   defp get_relation_keys(model) do
     model.schema_definition
-    |> Enum.filter(fn {_key, attrs} -> attrs["field_type"] == "relation" end)
-    |> Enum.map(fn {key, _attrs} -> key end)
+    |> Enum.filter(fn {_key, attrs} ->
+      attrs["field_type"] in ["relation", "relation_many"]
+    end)
+    |> Enum.map(fn {key, attrs} -> {key, attrs["field_type"]} end)
   end
 
   defp do_populate(entry, relation_keys, prefix, opts) do
     with_metadata = Keyword.get(opts, :with_metadata, true)
 
     new_data =
-      Enum.reduce(relation_keys, entry.data || %{}, fn key, acc_data ->
-        case Map.get(acc_data, key) do
-          id when is_binary(id) and id != "" ->
-            # Zaciągnij przypisane Entry
-            case get_entry(id, prefix) do
-              nil -> acc_data
-              target_entry -> Map.put(acc_data, key, entry_json(target_entry, with_metadata))
-            end
+      Enum.reduce(relation_keys, entry.data || %{}, fn
+        {key, "relation"}, acc_data ->
+          case Map.get(acc_data, key) do
+            id when is_binary(id) and id != "" ->
+              case get_entry(id, prefix) do
+                nil -> acc_data
+                target_entry -> Map.put(acc_data, key, entry_json(target_entry, with_metadata))
+              end
 
-          _ ->
-            acc_data
-        end
+            _ ->
+              acc_data
+          end
+
+        {key, "relation_many"}, acc_data ->
+          ids = Map.get(acc_data, key, [])
+
+          case ids do
+            ids when is_list(ids) and ids != [] ->
+              # Batch fetch — one query for uids in this field
+              valid_ids = Enum.filter(ids, &is_uuid?/1)
+
+              entries_map =
+                from(e in Entry, where: e.id in ^valid_ids)
+                |> Repo.all(prefix: prefix)
+                |> Enum.map(&{&1.id, &1})
+                |> Enum.into(%{})
+
+              populated =
+                valid_ids
+                |> Enum.map(&Map.get(entries_map, &1))
+                |> Enum.reject(&is_nil/1)
+                |> Enum.map(&entry_json(&1, with_metadata))
+
+              Map.put(acc_data, key, populated)
+
+            _ ->
+              acc_data
+          end
       end)
 
     %{entry | data: new_data}

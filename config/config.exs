@@ -63,6 +63,7 @@ config :okovita, :field_types, %{
   "date" => Okovita.FieldTypes.Date,
   "datetime" => Okovita.FieldTypes.Datetime,
   "relation" => Okovita.FieldTypes.Relation,
+  "relation_many" => Okovita.FieldTypes.RelationMany,
   "image" => Okovita.FieldTypes.Image,
   "image_gallery" => Okovita.FieldTypes.ImageGallery,
   "rich_text" => Okovita.FieldTypes.RichText
