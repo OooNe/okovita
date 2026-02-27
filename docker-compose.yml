@@ -11,6 +11,7 @@ services:
       - .:/app
       - deps_cache:/app/deps
       - build_cache:/app/_build
+      - ./uploads:/app/uploads
     env_file:
       - .env
     environment:
