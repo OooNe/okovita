@@ -70,4 +70,12 @@ defmodule Okovita.FieldTypes.RelationMany do
       do: validate_length(changeset, field_name, min: min),
       else: changeset
   end
+
+  @impl true
+  def form_assigns(field_name, _field_def, assigns) do
+    %{
+      value: Map.get(assigns.data, field_name) || [],
+      options: Map.get(assigns.relation_options, field_name, [])
+    }
+  end
 end

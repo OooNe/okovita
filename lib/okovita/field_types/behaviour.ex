@@ -7,11 +7,10 @@ defmodule Okovita.FieldTypes.Behaviour do
   - `cast/1` — coerce raw input to the correct type
   - `validate/3` — apply field-type-specific validations to a changeset
 
-  An optional fourth callback `editor_component/0` may be implemented to
-  declare the Phoenix.Component module used to render this field's editor UI.
-  The convention (used automatically by `Registry.editor_for/1`) is that if
-  the module `Foo.FieldType` does not declare `editor_component/0`, the
-  registry will look for `Foo.Editor` by module naming convention.
+  Optional callbacks:
+  - `editor_component/0` — Phoenix.Component module for the editor UI
+  - `upload_config/0` — LiveView upload configuration `{max_entries, accept}`
+  - `form_assigns/3` — extra assigns to merge into the editor component's assigns
   """
 
   @doc "Returns the Ecto primitive type (e.g. `:string`, `:integer`, `:float`, `:boolean`, `:date`, `:utc_datetime`)."
@@ -41,5 +40,41 @@ defmodule Okovita.FieldTypes.Behaviour do
   convention `<FieldTypeModule>.Editor` (e.g. `Okovita.FieldTypes.Image.Editor`).
   """
   @callback editor_component() :: module()
-  @optional_callbacks [editor_component: 0]
+
+  @doc """
+  Returns LiveView upload configuration for this field type, or `nil` if the
+  field type does not support direct file uploads.
+
+  The return value `{max_entries, accept}` is used by `Registry.upload_config/1`
+  to call `Phoenix.LiveView.allow_upload/3` at mount time.
+
+  ## Example
+
+      def upload_config, do: {1, ~w(.jpg .jpeg .png .gif .webp)}
+  """
+  @callback upload_config() :: {pos_integer(), [String.t()]} | nil
+
+  @doc """
+  Returns extra assigns to merge for the editor component of this field type.
+
+  Called by `Registry.form_assigns/4` when building the props passed to an
+  editor component. The returned map is merged on top of the base assigns
+  `%{name: field_name, value: raw_value}`.
+
+  `assigns` is the full LiveView assigns map (includes `:data`, `:uploads`,
+  `:relation_options`, etc.).
+
+  ## Example
+
+      def form_assigns(field_name, field_def, assigns) do
+        %{options: field_def["one_of"] || []}
+      end
+  """
+  @callback form_assigns(
+              field_name :: String.t(),
+              field_def :: map(),
+              assigns :: map()
+            ) :: map()
+
+  @optional_callbacks [editor_component: 0, upload_config: 0, form_assigns: 3]
 end

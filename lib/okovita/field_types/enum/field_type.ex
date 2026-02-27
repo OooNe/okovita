@@ -28,4 +28,8 @@ defmodule Okovita.FieldTypes.Enum do
         add_error(changeset, field_name, "one_of must be a list")
     end
   end
+
+  @impl true
+  def form_assigns(_field_name, field_def, _assigns),
+    do: %{options: field_def["one_of"] || []}
 end

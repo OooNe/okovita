@@ -5,9 +5,10 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
   import OkovitaWeb.MediaComponents, only: [media_picker_modal: 1]
 
   alias Okovita.Content
-  alias Okovita.FieldTypes.Image, as: ImageType
   alias Okovita.FieldTypes.ImageGallery, as: GalleryType
   alias Okovita.FieldTypes.Registry
+  alias OkovitaWeb.Admin.ContentLive.EntryForm.PickerHandler
+  alias OkovitaWeb.Admin.ContentLive.EntryForm.SaveHandler
 
   def mount(%{"model_slug" => slug, "id" => id}, _session, socket) do
     prefix = socket.assigns.tenant_prefix
@@ -69,98 +70,17 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
   # ── Media picker events ───────────────────────────────────────────────────────
 
-  def handle_event("open-media-picker", %{"field" => field, "mode" => mode}, socket) do
-    mode_atom = if mode == "single", do: :single, else: :multi
+  def handle_event("open-media-picker", %{"field" => field, "mode" => mode}, socket),
+    do: PickerHandler.open(socket, field, mode)
 
-    {:noreply,
-     assign(socket, picker_open: %{field: field, mode: mode_atom}, picker_selection: MapSet.new())}
-  end
+  def handle_event("picker-toggle-select", %{"id" => id}, socket),
+    do: PickerHandler.toggle(socket, id)
 
-  def handle_event("picker-toggle-select", %{"id" => id}, socket) do
-    selection = socket.assigns.picker_selection
-    mode = socket.assigns.picker_open.mode
+  def handle_event("picker-confirm", %{"field" => field_name}, socket),
+    do: PickerHandler.confirm(socket, field_name)
 
-    updated =
-      cond do
-        MapSet.member?(selection, id) -> MapSet.delete(selection, id)
-        mode == :single -> MapSet.new([id])
-        true -> MapSet.put(selection, id)
-      end
-
-    {:noreply, assign(socket, picker_selection: updated)}
-  end
-
-  def handle_event("picker-confirm", %{"field" => field_name}, socket) do
-    selected_ids = MapSet.to_list(socket.assigns.picker_selection)
-    data = socket.assigns.data
-    picker_open = socket.assigns.picker_open
-
-    media_map =
-      socket.assigns.media_items
-      |> Enum.map(&{&1.id, &1})
-      |> Enum.into(%{})
-
-    updated_data =
-      case picker_open.mode do
-        :single ->
-          [selected_id | _] = selected_ids
-
-          value =
-            case Map.get(media_map, selected_id) do
-              nil ->
-                selected_id
-
-              media ->
-                %{
-                  "id" => media.id,
-                  "url" => media.url,
-                  "file_name" => media.file_name,
-                  "mime_type" => media.mime_type
-                }
-            end
-
-          Map.put(data, field_name, value)
-
-        :multi ->
-          existing = Map.get(data, field_name, []) || []
-
-          existing_ids =
-            Enum.map(existing, fn
-              %{"media_id" => id} -> id
-              %{media_id: id} -> id
-              id when is_binary(id) -> id
-            end)
-
-          existing_set = MapSet.new(existing_ids)
-          new_ids = Enum.reject(selected_ids, &MapSet.member?(existing_set, &1))
-          all_ids = existing_ids ++ new_ids
-
-          mapped =
-            all_ids
-            |> Enum.with_index()
-            |> Enum.map(fn {id, i} ->
-              base = %{"media_id" => id, "index" => i}
-
-              case Map.get(media_map, id) do
-                nil -> base
-                media -> Map.merge(base, %{"url" => media.url, "file_name" => media.file_name})
-              end
-            end)
-
-          Map.put(data, field_name, mapped)
-      end
-
-    {:noreply,
-     assign(socket,
-       data: updated_data,
-       picker_open: nil,
-       picker_selection: MapSet.new()
-     )}
-  end
-
-  def handle_event("picker-cancel", _params, socket) do
-    {:noreply, assign(socket, picker_open: nil, picker_selection: MapSet.new())}
-  end
+  def handle_event("picker-cancel", _params, socket),
+    do: PickerHandler.cancel(socket)
 
   # ── Gallery events ────────────────────────────────────────────────────────────
 
@@ -168,7 +88,6 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     index = String.to_integer(index_str)
     data = socket.assigns.data
     current_images = Map.get(data, name, []) || []
-
     updated_images = GalleryType.remove_item(current_images, index)
     {:noreply, assign(socket, data: Map.put(data, name, updated_images))}
   end
@@ -207,15 +126,13 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     model = socket.assigns.model
     slug = params["slug"] || ""
 
-    # Process uploads for image fields
-    upload_results =
+    # consume_uploaded_entries/3 is a LiveView macro — must stay in this module.
+    raw_upload_results =
       Enum.reduce(model.schema_definition || %{}, %{}, fn {field_name, def}, acc ->
         if def["field_type"] in ["image", "image_gallery"] do
-          uploaded_media_results =
-            consume_uploaded_entries(
-              socket,
-              String.to_existing_atom(field_name),
-              fn %{path: path}, entry ->
+          results =
+            consume_uploaded_entries(socket, String.to_existing_atom(field_name), fn
+              %{path: path}, entry ->
                 case Okovita.Media.Uploader.upload(path, entry.client_name, entry.client_type) do
                   {:ok, attrs} ->
                     case Okovita.Content.create_media(attrs, prefix) do
@@ -232,89 +149,18 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
                   _ ->
                     {:ok, {:error, "Failed to upload #{entry.client_name}"}}
                 end
-              end
-            )
-
-          errors =
-            Enum.filter(uploaded_media_results, fn
-              {:error, _} -> true
-              _ -> false
             end)
-            |> Enum.map(fn {:error, msg} -> msg end)
 
-          successes =
-            Enum.filter(uploaded_media_results, fn
-              {:ok, _} -> true
-              _ -> false
-            end)
-            |> Enum.map(fn {:ok, id} -> id end)
-
-          Map.put(acc, field_name, %{successes: successes, errors: errors})
+          Map.put(acc, field_name, results)
         else
           acc
         end
       end)
 
-    # Flash upload errors
-    all_upload_errors =
-      upload_results
-      |> Map.values()
-      |> Enum.flat_map(& &1.errors)
-
-    socket =
-      if length(all_upload_errors) > 0 do
-        put_flash(socket, :error, Enum.join(all_upload_errors, " | "))
-      else
-        socket
-      end
-
-    upload_data =
-      Enum.into(upload_results, %{}, fn {field, result_map} ->
-        {field, result_map.successes}
-      end)
-
-    # Build final data map: uploaded media takes priority, then params
-    upload_data_mapped =
-      Enum.reduce(model.schema_definition || %{}, %{}, fn {field_name, def}, acc ->
-        if def["field_type"] in ["image", "image_gallery"] do
-          uploaded_media_ids = Map.get(upload_data, field_name, [])
-
-          case def["field_type"] do
-            "image" ->
-              if length(uploaded_media_ids) > 0 do
-                Map.put(acc, field_name, hd(uploaded_media_ids))
-              else
-                id =
-                  ImageType.extract_id(Map.get(socket.assigns.data, field_name))
-
-                if id, do: Map.put(acc, field_name, id), else: acc
-              end
-
-            "image_gallery" ->
-              existing_from_params = Map.get(params, "#{field_name}__existing", [])
-              all_ids = existing_from_params ++ uploaded_media_ids
-
-              mapped_ids =
-                all_ids
-                |> Enum.with_index()
-                |> Enum.map(fn {id, i} -> %{"media_id" => id, "index" => i} end)
-
-              Map.put(acc, field_name, mapped_ids)
-          end
-        else
-          acc
-        end
-      end)
+    {socket, upload_results} = SaveHandler.collect_results(socket, raw_upload_results)
 
     data =
-      model.schema_definition
-      |> Enum.into(%{}, fn {field_name, def} ->
-        fallback =
-          if def["field_type"] in ["image_gallery", "relation_many"], do: [], else: ""
-
-        {field_name,
-         Map.get(upload_data_mapped, field_name, Map.get(params, field_name, fallback))}
-      end)
+      SaveHandler.build_data(model.schema_definition, upload_results, params, socket.assigns.data)
 
     result =
       if socket.assigns.entry do
@@ -409,73 +255,31 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
   # ── Private ───────────────────────────────────────────────────────────────────
 
-  # Builds the assigns map to pass to an editor component for a given field.
+  # Builds the assigns map passed to an editor component.
+  # Base is %{name: field_name, value: raw_value}; extra assigns come from Registry.
   defp build_field_assigns(field_name, field_def, assigns) do
-    field_atom = String.to_existing_atom(field_name)
-    upload = Map.get(assigns, :uploads, %{})[field_atom]
-    raw_value = Map.get(assigns.data, field_name)
-
     base = %{
       name: field_name,
-      value: raw_value
+      value: Map.get(assigns.data, field_name)
     }
 
-    case field_def["field_type"] do
-      "image" ->
-        Map.merge(base, %{
-          upload: upload,
-          media_value: %{
-            id: ImageType.extract_id(raw_value),
-            url: ImageType.extract_url(raw_value)
-          }
-        })
-
-      "image_gallery" ->
-        Map.merge(base, %{
-          upload: upload,
-          value: GalleryType.normalize(raw_value)
-        })
-
-      "enum" ->
-        Map.merge(base, %{
-          options: field_def["one_of"] || []
-        })
-
-      "relation" ->
-        Map.merge(base, %{
-          options: Map.get(assigns.relation_options, field_name, [])
-        })
-
-      "relation_many" ->
-        Map.merge(base, %{
-          value: raw_value || [],
-          options: Map.get(assigns.relation_options, field_name, [])
-        })
-
-      _ ->
-        base
-    end
+    extra = Registry.form_assigns(field_def["field_type"], field_name, field_def, assigns)
+    Map.merge(base, extra)
   end
 
   defp allow_image_uploads(socket, model) do
     Enum.reduce(model.schema_definition || %{}, socket, fn {field_name, def}, acc_socket ->
-      case def["field_type"] do
-        "image" ->
-          # String.to_atom/1 here creates the atom for the first time at mount;
-          # String.to_existing_atom/1 is then safe in subsequent event handlers.
-          allow_upload(acc_socket, String.to_atom(field_name),
-            accept: ~w(.jpg .jpeg .png .gif .webp),
-            max_entries: 1
-          )
-
-        "image_gallery" ->
-          allow_upload(acc_socket, String.to_atom(field_name),
-            accept: ~w(.jpg .jpeg .png .gif .webp),
-            max_entries: 20
-          )
-
-        _ ->
+      case Registry.upload_config(def["field_type"]) do
+        nil ->
           acc_socket
+
+        {max_entries, accept} ->
+          # String.to_atom/1 is intentional at mount time to create the atom;
+          # String.to_existing_atom/1 is then safe in event handlers.
+          allow_upload(acc_socket, String.to_atom(field_name),
+            accept: accept,
+            max_entries: max_entries
+          )
       end
     end)
   end

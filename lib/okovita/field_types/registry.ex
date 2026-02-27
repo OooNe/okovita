@@ -45,7 +45,7 @@ defmodule Okovita.FieldTypes.Registry do
   end
 
   @doc """
-  Returns the Phoenix.Component editor module for the given field type name, or `nil` if not found.
+  Returns the editor component module for the given field type name, or `nil` if not found.
 
   Resolution order:
   1. If the field type module exports `editor_component/0`, use its return value.
@@ -72,6 +72,57 @@ defmodule Okovita.FieldTypes.Registry do
             # Convention: Okovita.FieldTypes.Image -> Okovita.FieldTypes.Image.Editor
             editor = Module.concat(module, Editor)
             if Code.ensure_loaded?(editor), do: editor, else: nil
+        end
+    end
+  end
+
+  @doc """
+  Returns the LiveView upload configuration `{max_entries, accept}` for the given
+  field type, or `nil` if the type does not support file uploads.
+
+  Delegates to the field type module's `upload_config/0` callback if implemented.
+
+  ## Example
+
+      iex> Okovita.FieldTypes.Registry.upload_config("image")
+      {1, ~w(.jpg .jpeg .png .gif .webp)}
+
+      iex> Okovita.FieldTypes.Registry.upload_config("text")
+      nil
+  """
+  @spec upload_config(String.t()) :: {pos_integer(), [String.t()]} | nil
+  def upload_config(type_name) when is_binary(type_name) do
+    case Agent.get(__MODULE__, &Map.get(&1, type_name)) do
+      nil -> nil
+      module -> if function_exported?(module, :upload_config, 0), do: module.upload_config()
+    end
+  end
+
+  @doc """
+  Returns extra assigns for a field's editor component by delegating to the
+  field type module's `form_assigns/3` callback.
+
+  Falls back to an empty map `%{}` if the callback is not implemented.
+
+  The caller is responsible for merging the result on top of the base assigns
+  `%{name: field_name, value: raw_value}`.
+
+  ## Example
+
+      iex> Okovita.FieldTypes.Registry.form_assigns("enum", "status", %{"one_of" => ["a","b"]}, assigns)
+      %{options: ["a", "b"]}
+  """
+  @spec form_assigns(String.t(), String.t(), map(), map()) :: map()
+  def form_assigns(type_name, field_name, field_def, assigns) when is_binary(type_name) do
+    case Agent.get(__MODULE__, &Map.get(&1, type_name)) do
+      nil ->
+        %{}
+
+      module ->
+        if function_exported?(module, :form_assigns, 3) do
+          module.form_assigns(field_name, field_def, assigns)
+        else
+          %{}
         end
     end
   end

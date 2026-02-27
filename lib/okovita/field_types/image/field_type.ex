@@ -36,6 +36,23 @@ defmodule Okovita.FieldTypes.Image do
     end
   end
 
+  @impl true
+  def upload_config, do: {1, ~w(.jpg .jpeg .png .gif .webp)}
+
+  @impl true
+  def form_assigns(field_name, _field_def, assigns) do
+    raw = Map.get(assigns.data, field_name)
+    field_atom = String.to_existing_atom(field_name)
+
+    %{
+      upload: Map.get(assigns[:uploads] || %{}, field_atom),
+      media_value: %{
+        id: extract_id(raw),
+        url: extract_url(raw)
+      }
+    }
+  end
+
   # ── Normalization helpers ─────────────────────────────────────────────────────
 
   @doc """

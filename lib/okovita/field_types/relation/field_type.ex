@@ -29,4 +29,8 @@ defmodule Okovita.FieldTypes.Relation do
       message: "must be a valid UUID"
     )
   end
+
+  @impl true
+  def form_assigns(field_name, _field_def, assigns),
+    do: %{options: Map.get(assigns.relation_options, field_name, [])}
 end
