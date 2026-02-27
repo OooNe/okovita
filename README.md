@@ -6,7 +6,7 @@
 
 - **Prefix-based multi-tenancy** — each tenant gets its own PostgreSQL schema (`tenant_{id}`)
 - **Dynamic content models** — define content types with JSON schema definitions at runtime
-- **Field type registry** — 12 built-in types, extensible via behaviour + vertical-slice structure
+- **Field type registry** — 13 built-in types, extensible via behaviour + vertical-slice structure
 - **Media Library** — S3-backed file management with drag-and-drop upload, media picker, batch operations
 - **Sync & async pipelines** — data transforms (trim, slugify) before storage, with Oban-powered async workers
 - **Config-driven transport layer** — REST by default, extensible to GraphQL/gRPC without code changes
@@ -91,8 +91,8 @@ okovita/
 │   │   │   │   └── editor.ex       # Okovita.FieldTypes.Text.Editor (Phoenix.Component)
 │   │   │   ├── image/
 │   │   │   ├── image_gallery/
-│   │   │   ├── rich_text/          # Stub — JS hook TBD
-│   │   │   └── types/              # @deprecated aliases → new modules
+│   │   │   ├── relation_many/      # One-to-many relationship
+│   │   │   └── rich_text/          # Stub — JS hook TBD
 │   │   ├── content/          # Models, entries, media, dynamic changeset
 │   │   │   ├── entry_data_normalizer.ex  # Centralizes media data coercion (mixed atom/string keys)
 │   │   │   ├── media_queries.ex          # DB queries for Media records
@@ -109,6 +109,9 @@ okovita/
 │       │   └── media_components.ex   # upload_toast, media_picker_modal
 │       └── live/admin/       # LiveView dashboard
 │           └── content_live/
+│               ├── entry_form/
+│               │   ├── save_handler.ex    # Data mutation & error handling
+│               │   └── picker_handler.ex  # Media selection events
 │               └── entry_form.ex     # Data-driven form — dispatches to editor components
 ├── priv/repo/migrations/
 │   ├── public/               # Global schema migrations
@@ -144,6 +147,7 @@ config :okovita, :field_types, %{
   "date"          => Okovita.FieldTypes.Date,
   "datetime"      => Okovita.FieldTypes.Datetime,
   "relation"      => Okovita.FieldTypes.Relation,
+  "relation_many" => Okovita.FieldTypes.RelationMany,
   "image"         => Okovita.FieldTypes.Image,
   "image_gallery" => Okovita.FieldTypes.ImageGallery,
   "rich_text"     => Okovita.FieldTypes.RichText       # ← stub, JS hook TBD
@@ -218,7 +222,14 @@ No changes to `EntryForm` or any other module required — the registry resolves
 
 # Optional — override editor_component/0 if you want an explicit module name:
 @callback editor_component() :: module()
-@optional_callbacks [editor_component: 0]
+
+# Optional — provide upload configuration for fields handling files (e.g. max_entries, max_file_size, accept):
+@callback upload_config() :: keyword() | nil
+
+# Optional — return additional assigns required by the editor component, computed from form/field context:
+@callback form_assigns(form :: Phoenix.HTML.Form.t(), field :: atom(), options :: map()) :: map()
+
+@optional_callbacks [editor_component: 0, upload_config: 0, form_assigns: 3]
 ```
 
 ## API Usage
