@@ -84,11 +84,12 @@ okovita/
 │   │   ├── tenants/          # Tenant management
 │   │   ├── auth/             # Admin authentication
 │   │   ├── field_types/      # Type registry & vertical-slice implementations
-│   │   │   ├── behaviour.ex        # Behaviour contract (primitive_type, cast, validate, editor_component?)
-│   │   │   ├── registry.ex         # Config-driven Agent registry, editor_for/1
+│   │   │   ├── behaviour.ex        # Behaviour contract (primitive_type, cast, validate, editor_component?, configurator_component?)
+│   │   │   ├── registry.ex         # Config-driven Agent registry, editor_for/1, configurator_for/1
 │   │   │   ├── text/               # ← example vertical slice
 │   │   │   │   ├── field_type.ex   # Okovita.FieldTypes.Text (cast, validate)
-│   │   │   │   └── editor.ex       # Okovita.FieldTypes.Text.Editor (Phoenix.Component)
+│   │   │   │   ├── editor.ex       # Okovita.FieldTypes.Text.Editor (Phoenix.Component UI for EntryForm)
+│   │   │   │   └── configurator.ex # Okovita.FieldTypes.Text.Configurator (Phoenix.Component UI for ModelBuilder)
 │   │   │   ├── image/
 │   │   │   ├── image_gallery/
 │   │   │   ├── relation_many/      # One-to-many relationship
@@ -125,12 +126,13 @@ okovita/
 
 ### Architecture: Vertical Slices
 
-Each field type is a self-contained directory with two files:
+Each field type is a self-contained directory with up to three files:
 
 ```
 lib/okovita/field_types/<type>/
   field_type.ex   ← backend: cast, validate (Okovita.FieldTypes.<Type>)
-  editor.ex       ← frontend: Phoenix.Component render/1 (Okovita.FieldTypes.<Type>.Editor)
+  editor.ex       ← frontend (EntryForm): Phoenix.Component render/1 (Okovita.FieldTypes.<Type>.Editor)
+  configurator.ex ← frontend (ModelBuilder): Phoenix.Component render/1 (Okovita.FieldTypes.<Type>.Configurator) (Optional)
 ```
 
 The **Registry** maps string names to modules, and resolves the editor component automatically by convention (`Module.Editor`):
@@ -156,12 +158,13 @@ config :okovita, :field_types, %{
 
 ### Adding a New Field Type
 
-1. Create the directory and two files:
+1. Create the directory and files:
 
    ```
    lib/okovita/field_types/my_type/
      field_type.ex
      editor.ex
+     configurator.ex (optional)
    ```
 
 2. Implement `Okovita.FieldTypes.Behaviour` in `field_type.ex`:
@@ -204,7 +207,7 @@ config :okovita, :field_types, %{
    config :okovita, :field_types, Map.put(existing_map, "my_type", Okovita.FieldTypes.MyType)
    ```
 
-No changes to `EntryForm` or any other module required — the registry resolves `MyType.Editor` automatically.
+No changes to `EntryForm` or `ModelBuilder` required — the registry resolves `MyType.Editor` and `MyType.Configurator` automatically.
 
 ### Behaviour Reference
 
@@ -220,8 +223,11 @@ No changes to `EntryForm` or any other module required — the registry resolves
   options :: map()       # from schema_definition, e.g. %{"max_length" => 255, "one_of" => [...]}
 ) :: Ecto.Changeset.t()
 
-# Optional — override editor_component/0 if you want an explicit module name:
+# Optional — override editor_component/0 if you want an explicit module name for EntryForm:
 @callback editor_component() :: module()
+
+# Optional — override configurator_component/0 if you want an explicit module name for ModelBuilder:
+@callback configurator_component() :: module()
 
 # Optional — provide upload configuration for fields handling files (e.g. max_entries, max_file_size, accept):
 @callback upload_config() :: keyword() | nil
@@ -229,7 +235,7 @@ No changes to `EntryForm` or any other module required — the registry resolves
 # Optional — return additional assigns required by the editor component, computed from form/field context:
 @callback form_assigns(form :: Phoenix.HTML.Form.t(), field :: atom(), options :: map()) :: map()
 
-@optional_callbacks [editor_component: 0, upload_config: 0, form_assigns: 3]
+@optional_callbacks [editor_component: 0, configurator_component: 0, upload_config: 0, form_assigns: 3]
 ```
 
 ## API Usage
