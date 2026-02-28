@@ -42,6 +42,12 @@ defmodule Okovita.FieldTypes.Behaviour do
   @callback editor_component() :: module()
 
   @doc """
+  Returns the Phoenix.Component module that renders the specific configuration UI
+  for this field type inside ModelBuilder. Optional. Falls back to `<Module>.Configurator`.
+  """
+  @callback configurator_component() :: module()
+
+  @doc """
   Returns LiveView upload configuration for this field type, or `nil` if the
   field type does not support direct file uploads.
 
@@ -76,5 +82,10 @@ defmodule Okovita.FieldTypes.Behaviour do
               assigns :: map()
             ) :: map()
 
-  @optional_callbacks [editor_component: 0, upload_config: 0, form_assigns: 3]
+  @optional_callbacks [
+    editor_component: 0,
+    configurator_component: 0,
+    upload_config: 0,
+    form_assigns: 3
+  ]
 end

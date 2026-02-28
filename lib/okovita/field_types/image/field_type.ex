@@ -77,6 +77,7 @@ defmodule Okovita.FieldTypes.Image do
   """
   @spec extract_id(any()) :: String.t() | nil
   def extract_id(%{"id" => id}) when is_binary(id) and id != "", do: id
+  def extract_id(%{id: id}) when is_binary(id) and id != "", do: id
   def extract_id(id) when is_binary(id) and id != "", do: id
   def extract_id(_), do: nil
 
@@ -87,5 +88,6 @@ defmodule Okovita.FieldTypes.Image do
   """
   @spec extract_url(any()) :: String.t() | nil
   def extract_url(%{"url" => url}) when is_binary(url) and url != "", do: url
+  def extract_url(%{url: url}) when is_binary(url) and url != "", do: url
   def extract_url(_), do: nil
 end

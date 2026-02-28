@@ -111,25 +111,55 @@ defmodule Okovita.OpenAPI.Generator do
   defp map_field_type(%{"field_type" => "datetime"}),
     do: %{"type" => "string", "format" => "date-time"}
 
-  defp map_field_type(%{"field_type" => "relation", "target_model" => target})
-       when is_binary(target),
-       do: %{
-         "oneOf" => [
-           %{"type" => "string", "format" => "uuid"},
-           %{"$ref" => "#/components/schemas/#{target}_Entry"}
-         ]
-       }
+  defp map_field_type(%{"field_type" => type, "target_model" => target}) do
+    if Okovita.FieldTypes.Registry.targets_entry?(type) and is_binary(target) do
+      %{
+        "oneOf" => [
+          %{"type" => "string", "format" => "uuid"},
+          %{"$ref" => "#/components/schemas/#{target}_Entry"}
+        ]
+      }
+    else
+      %{"type" => "string"}
+    end
+  end
 
-  defp map_field_type(%{"field_type" => "relation"}),
-    do: %{"type" => "string", "format" => "uuid"}
+  defp map_field_type(%{"field_type" => type}) do
+    if Okovita.FieldTypes.Registry.targets_entry?(type) do
+      %{"type" => "string", "format" => "uuid"}
+    else
+      %{"type" => "string"}
+    end
+  end
 
   defp map_field_type(_), do: %{"type" => "string"}
 
   defp build_paths(models) do
     Enum.reduce(models, %{}, fn model, paths ->
+      relations_paths =
+        Enum.reduce(models, %{}, fn child_model, sub_paths ->
+          targets_parent? =
+            child_model.schema_definition
+            |> Enum.any?(fn {_key, def} ->
+              Okovita.FieldTypes.Registry.targets_entry?(def["field_type"]) and
+                def["target_model"] == model.slug
+            end)
+
+          if targets_parent? do
+            Map.put(
+              sub_paths,
+              "/models/#{model.slug}/entries/{id}/#{child_model.slug}",
+              nested_operations(model, child_model.slug)
+            )
+          else
+            sub_paths
+          end
+        end)
+
       paths
       |> Map.put("/models/#{model.slug}/entries", collection_operations(model))
       |> Map.put("/models/#{model.slug}/entries/{id}", item_operations(model))
+      |> Map.merge(relations_paths)
     end)
   end
 
@@ -145,6 +175,13 @@ defmodule Okovita.OpenAPI.Generator do
             "description" => "Include system metadata wrapper",
             "required" => false,
             "schema" => %{"type" => "boolean", "default" => false}
+          },
+          %{
+            "name" => "populate",
+            "in" => "query",
+            "description" => "Comma-separated list of relation keys to populate, or * for all",
+            "required" => false,
+            "schema" => %{"type" => "string"}
           }
         ],
         "responses" => %{
@@ -236,11 +273,23 @@ defmodule Okovita.OpenAPI.Generator do
       }
     ]
 
+    get_parameters =
+      parameters ++
+        [
+          %{
+            "name" => "populate",
+            "in" => "query",
+            "description" => "Comma-separated list of relation keys to populate, or * for all",
+            "required" => false,
+            "schema" => %{"type" => "string"}
+          }
+        ]
+
     %{
       "get" => %{
         "tags" => [model.name],
         "summary" => "Get entry for #{model.name}",
-        "parameters" => parameters,
+        "parameters" => get_parameters,
         "responses" => %{
           "200" => %{
             "description" => "Entry data",
@@ -310,6 +359,56 @@ defmodule Okovita.OpenAPI.Generator do
             "description" => "Deleted entry"
           },
           "404" => %{"description" => "Not found"}
+        }
+      }
+    }
+  end
+
+  defp nested_operations(parent_model, target_slug) do
+    %{
+      "get" => %{
+        "tags" => [parent_model.name],
+        "summary" => "List nested #{target_slug} entries for #{parent_model.name}",
+        "parameters" => [
+          %{
+            "name" => "id",
+            "in" => "path",
+            "required" => true,
+            "schema" => %{"type" => "string"}
+          },
+          %{
+            "name" => "withMetadata",
+            "in" => "query",
+            "description" => "Include system metadata wrapper",
+            "required" => false,
+            "schema" => %{"type" => "boolean", "default" => false}
+          },
+          %{
+            "name" => "populate",
+            "in" => "query",
+            "description" => "Comma-separated list of relation keys to populate, or * for all",
+            "required" => false,
+            "schema" => %{"type" => "string"}
+          }
+        ],
+        "responses" => %{
+          "200" => %{
+            "description" => "List of nested entries",
+            "content" => %{
+              "application/json" => %{
+                "schema" => %{
+                  "type" => "array",
+                  "items" => %{
+                    "oneOf" => [
+                      %{"$ref" => "#/components/schemas/#{target_slug}_Data"},
+                      %{"$ref" => "#/components/schemas/#{target_slug}_Entry"}
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "404" => %{"description" => "Parent entry or model not found"}
         }
       }
     }

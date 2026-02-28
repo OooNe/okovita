@@ -183,8 +183,8 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryControllerTest do
     end
   end
 
-  describe "Relation Auto-Population" do
-    test "populates relation fields", %{conn: conn, prefix: prefix} do
+  describe "Relation Population" do
+    test "populates relation fields when populate is configured", %{conn: conn, prefix: prefix} do
       # 1. Create target model
       {:ok, author_model} =
         Content.create_model(
@@ -233,16 +233,149 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryControllerTest do
         )
 
       # 5. Fetch the linked entry from `index` and `show`
+      conn_index = get(conn, "/api/v1/models/docs/entries?populate=*&withMetadata=true")
+
+      assert [fetched_index_doc] = json_response(conn_index, 200)
+      assert fetched_index_doc["data"]["author"]["data"]["id"] == author.id
+      assert fetched_index_doc["data"]["author"]["data"]["name"] == "John Doe"
+      # metadata was populated with nested object
+      assert fetched_index_doc["data"]["author"]["metadata"]["model_slug"] == "authors"
+
+      conn_show = get(conn, "/api/v1/models/docs/entries/#{doc.id}?populate=*&withMetadata=true")
+      assert fetched_show_doc = json_response(conn_show, 200)
+      assert fetched_show_doc["data"]["author"]["data"]["id"] == author.id
+      assert fetched_show_doc["data"]["author"]["data"]["name"] == "John Doe"
+    end
+
+    test "ignores population by default preserving original ids", %{conn: conn, prefix: prefix} do
+      # 1. Create target model
+      {:ok, author_model} =
+        Content.create_model(
+          %{
+            slug: "authors",
+            name: "Authors",
+            schema_definition: %{
+              "name" => %{"field_type" => "text", "label" => "Name", "required" => true}
+            }
+          },
+          prefix
+        )
+
+      # 2. Create entry for the target model
+      {:ok, author} =
+        Content.create_entry(
+          author_model.id,
+          %{slug: "john-doe", data: %{"name" => "John Doe"}},
+          prefix
+        )
+
+      # 3. Create model with a relation
+      {:ok, doc_model} =
+        Content.create_model(
+          %{
+            slug: "docs",
+            name: "Docs",
+            schema_definition: %{
+              "author" => %{
+                "field_type" => "relation",
+                "label" => "Author",
+                "target_model" => "authors",
+                "required" => false
+              }
+            }
+          },
+          prefix
+        )
+
+      # 4. Create an entry linking to the author
+      {:ok, doc} =
+        Content.create_entry(
+          doc_model.id,
+          %{slug: "doc-1", data: %{"author" => author.id}},
+          prefix
+        )
+
+      # 5. Fetch the linked entry WITHOUT `populate=*`
       conn_index = get(conn, "/api/v1/models/docs/entries")
 
       assert [fetched_index_doc] = json_response(conn_index, 200)
+      # Assert the value is exactly the string ID, not an object
       assert fetched_index_doc["author"]["id"] == author.id
-      assert fetched_index_doc["author"]["name"] == "John Doe"
 
       conn_show = get(conn, "/api/v1/models/docs/entries/#{doc.id}")
       assert fetched_show_doc = json_response(conn_show, 200)
+      # Assert the value is exactly the string ID, not an object
       assert fetched_show_doc["author"]["id"] == author.id
-      assert fetched_show_doc["author"]["name"] == "John Doe"
+    end
+  end
+
+  describe "Nested Relations Endpoint" do
+    test "lists related children by parent endpoint", %{conn: conn, prefix: prefix} do
+      # 1. Create parent model (Author) with no relations
+      {:ok, author_model} =
+        Content.create_model(
+          %{
+            slug: "authors",
+            name: "Authors",
+            schema_definition: %{
+              "name" => %{"field_type" => "text", "label" => "Name", "required" => true}
+            }
+          },
+          prefix
+        )
+
+      # 2. Create child model (Docs) which points to Authors
+      {:ok, doc_model} =
+        Content.create_model(
+          %{
+            slug: "docs",
+            name: "Docs",
+            schema_definition: %{
+              "title" => %{"field_type" => "text", "label" => "Title", "required" => true},
+              "author" => %{
+                "field_type" => "relation",
+                "label" => "Author",
+                "target_model" => "authors",
+                "required" => false
+              }
+            }
+          },
+          prefix
+        )
+
+      # 3. Create Parent entry
+      {:ok, author} =
+        Content.create_entry(
+          author_model.id,
+          %{slug: "john-doe", data: %{"name" => "John"}},
+          prefix
+        )
+
+      # 4. Create child entries linking to the author
+      {:ok, _doc1} =
+        Content.create_entry(
+          doc_model.id,
+          %{slug: "doc-1", data: %{"title" => "First", "author" => author.id}},
+          prefix
+        )
+
+      {:ok, _doc2} =
+        Content.create_entry(
+          doc_model.id,
+          %{slug: "doc-2", data: %{"title" => "Second", "author" => author.id}},
+          prefix
+        )
+
+      # 5. Consume Nested Endpoint (Parent's perspective)
+      conn_nested = get(conn, "/api/v1/models/authors/entries/#{author.id}/docs")
+
+      assert nested_resp = json_response(conn_nested, 200)
+      assert is_list(nested_resp)
+      assert length(nested_resp) == 2
+
+      titles = Enum.map(nested_resp, & &1["title"])
+      assert "First" in titles
+      assert "Second" in titles
     end
   end
 

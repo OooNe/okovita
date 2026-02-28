@@ -107,6 +107,7 @@ defmodule OkovitaWeb.Router do
     # Content entries
     get "/models/:model_slug/entries", EntryController, :index
     get "/models/:model_slug/entries/:id", EntryController, :show
+    get "/models/:model_slug/entries/:id/:child_model_slug", EntryController, :relations
     post "/models/:model_slug/entries", EntryController, :create
     put "/models/:model_slug/entries/:id", EntryController, :update
     delete "/models/:model_slug/entries/:id", EntryController, :delete

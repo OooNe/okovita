@@ -17,7 +17,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
     if model && entry do
       # N+1 Fix: Populate media upfront to avoid DB lookups inside render
-      entry = Content.populate_media(entry, model, prefix)
+      entry = Content.populate(entry, model, prefix)
 
       socket =
         socket
@@ -129,7 +129,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     # consume_uploaded_entries/3 is a LiveView macro — must stay in this module.
     raw_upload_results =
       Enum.reduce(model.schema_definition || %{}, %{}, fn {field_name, def}, acc ->
-        if def["field_type"] in ["image", "image_gallery"] do
+        if Registry.upload_config(def["field_type"]) != nil do
           results =
             consume_uploaded_entries(socket, String.to_existing_atom(field_name), fn
               %{path: path}, entry ->
@@ -294,7 +294,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
   defp load_relation_options(model, prefix) do
     Enum.reduce(model.schema_definition || %{}, %{}, fn {field_name, def}, acc ->
-      if def["field_type"] in ["relation", "relation_many"] and def["target_model"] do
+      if Registry.targets_entry?(def["field_type"]) and def["target_model"] do
         target_model = Content.get_model_by_slug(def["target_model"], prefix)
 
         if target_model do

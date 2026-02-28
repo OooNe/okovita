@@ -43,6 +43,26 @@ defmodule Okovita.FieldTypes.ImageGallery do
           |> Map.put("index", index)
           |> Map.drop(["image_url"])
 
+        {%{media_id: id} = item, idx} when is_binary(id) ->
+          index =
+            case Map.get(item, :index, idx) do
+              i when is_integer(i) -> i
+              s when is_binary(s) -> String.to_integer(s)
+              _ -> idx
+            end
+
+          %{"media_id" => String.trim(id), "index" => index}
+
+        {%{image_url: id} = item, idx} when is_binary(id) ->
+          index =
+            case Map.get(item, :index, idx) do
+              i when is_integer(i) -> i
+              s when is_binary(s) -> String.to_integer(s)
+              _ -> idx
+            end
+
+          %{"media_id" => String.trim(id), "index" => index}
+
         _ ->
           nil
       end)
@@ -180,6 +200,11 @@ defmodule Okovita.FieldTypes.ImageGallery do
     Map.put(item, "index", index)
   end
 
+  defp normalize_item({%{media_id: id} = item, idx}) when is_binary(id) do
+    index = parse_index(Map.get(item, :index, idx), idx)
+    Map.new([{"media_id", String.trim(id)}, {"index", index}])
+  end
+
   # Legacy: image_url key
   defp normalize_item({%{"image_url" => id} = item, idx}) when is_binary(id) do
     index = parse_index(Map.get(item, "index", idx), idx)
@@ -188,6 +213,11 @@ defmodule Okovita.FieldTypes.ImageGallery do
     |> Map.put("media_id", String.trim(id))
     |> Map.put("index", index)
     |> Map.drop(["image_url"])
+  end
+
+  defp normalize_item({%{image_url: id} = item, idx}) when is_binary(id) do
+    index = parse_index(Map.get(item, :index, idx), idx)
+    Map.new([{"media_id", String.trim(id)}, {"index", index}])
   end
 
   defp normalize_item(_), do: nil

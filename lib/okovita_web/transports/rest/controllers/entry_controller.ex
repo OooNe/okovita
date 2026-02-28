@@ -2,13 +2,15 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
   @moduledoc "REST controller for content entries."
   use OkovitaWeb, :controller
 
+  alias Okovita.Content.EntryFormatter
   alias Okovita.Content
 
   action_fallback OkovitaWeb.FallbackController
 
   def index(conn, %{"model_slug" => model_slug} = params) do
     prefix = conn.assigns.tenant_prefix
-    with_metadata = parse_boolean(params["withMetadata"], false)
+    opts = parse_params(params)
+    with_metadata = opts[:with_metadata]
 
     case Content.get_model_by_slug(model_slug, prefix) do
       nil ->
@@ -21,25 +23,24 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
 
         populated_entries =
           entries
-          |> Content.populate_relations(model, prefix, with_metadata: with_metadata)
-          |> Content.populate_media(model, prefix)
+          |> Content.populate(model, prefix, opts)
 
-        json(conn, Enum.map(populated_entries, &entry_json(&1, with_metadata)))
+        json(conn, Enum.map(populated_entries, &EntryFormatter.format(&1, model, with_metadata)))
     end
   end
 
   def show(conn, %{"model_slug" => model_slug, "id" => id} = params) do
     prefix = conn.assigns.tenant_prefix
-    with_metadata = parse_boolean(params["withMetadata"], false)
+    opts = parse_params(params)
+    with_metadata = opts[:with_metadata]
 
     with model when not is_nil(model) <- Content.get_model_by_slug(model_slug, prefix),
          entry when not is_nil(entry) <- Content.get_entry(id, prefix) do
       populated_entry =
         entry
-        |> Content.populate_relations(model, prefix, with_metadata: with_metadata)
-        |> Content.populate_media(model, prefix)
+        |> Content.populate(model, prefix, opts)
 
-      json(conn, entry_json(populated_entry, with_metadata))
+      json(conn, EntryFormatter.format(populated_entry, model, with_metadata))
     else
       nil ->
         conn
@@ -50,7 +51,8 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
 
   def create(conn, %{"model_slug" => model_slug} = params) do
     prefix = conn.assigns.tenant_prefix
-    with_metadata = parse_boolean(params["withMetadata"], false)
+    opts = parse_params(params)
+    with_metadata = opts[:with_metadata]
 
     case Content.get_model_by_slug(model_slug, prefix) do
       nil ->
@@ -68,12 +70,11 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
           {:ok, entry} ->
             populated_entry =
               entry
-              |> Content.populate_relations(model, prefix, with_metadata: with_metadata)
-              |> Content.populate_media(model, prefix)
+              |> Content.populate(model, prefix, opts)
 
             conn
             |> put_status(:created)
-            |> json(entry_json(populated_entry, with_metadata))
+            |> json(EntryFormatter.format(populated_entry, model, with_metadata))
 
           {:error, %Ecto.Changeset{} = changeset} ->
             conn
@@ -90,7 +91,8 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
 
   def update(conn, %{"model_slug" => model_slug, "id" => id} = params) do
     prefix = conn.assigns.tenant_prefix
-    with_metadata = parse_boolean(params["withMetadata"], false)
+    opts = parse_params(params)
+    with_metadata = opts[:with_metadata]
 
     with model when not is_nil(model) <- Content.get_model_by_slug(model_slug, prefix) do
       update_attrs =
@@ -102,10 +104,9 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
         {:ok, entry} ->
           populated_entry =
             entry
-            |> Content.populate_relations(model, prefix, with_metadata: with_metadata)
-            |> Content.populate_media(model, prefix)
+            |> Content.populate(model, prefix, opts)
 
-          json(conn, entry_json(populated_entry, with_metadata))
+          json(conn, EntryFormatter.format(populated_entry, model, with_metadata))
 
         {:error, :not_found} ->
           conn
@@ -144,27 +145,38 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
     end
   end
 
-  defp entry_json(entry, with_metadata) do
-    # Check if entry is already structured from a nested population
-    if Map.has_key?(entry, :metadata) and Map.has_key?(entry, :data) do
-      if with_metadata, do: entry, else: entry.data
-    else
-      data = Map.put(entry.data || %{}, "id", entry.id)
+  def relations(
+        conn,
+        %{"model_slug" => parent_slug, "id" => parent_id, "child_model_slug" => child_slug} =
+          params
+      ) do
+    prefix = conn.assigns.tenant_prefix
+    opts = parse_params(params)
+    with_metadata = opts[:with_metadata]
 
-      if with_metadata do
-        %{
-          metadata: %{
-            slug: entry.slug,
-            model_id: entry.model_id,
-            inserted_at: entry.inserted_at,
-            updated_at: entry.updated_at
-          },
-          data: data
-        }
-      else
-        data
-      end
+    case Content.list_entries_by_parent(parent_id, parent_slug, child_slug, prefix) do
+      {child_model, entries} ->
+        populated_entries =
+          entries
+          |> Content.populate(child_model, prefix, opts)
+
+        json(
+          conn,
+          Enum.map(populated_entries, &EntryFormatter.format(&1, child_model, with_metadata))
+        )
+
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: %{message: "Parent entry or model not found"}})
     end
+  end
+
+  defp parse_params(params) do
+    [
+      with_metadata: parse_boolean(params["withMetadata"], false),
+      populate: parse_populate(params["populate"])
+    ]
   end
 
   defp parse_boolean(value, default) do
@@ -175,6 +187,16 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
       "0" -> false
       _ -> default
     end
+  end
+
+  defp parse_populate(nil), do: []
+  defp parse_populate("*"), do: :all
+
+  defp parse_populate(value) when is_binary(value) do
+    value
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
   end
 
   defp format_errors(changeset) do

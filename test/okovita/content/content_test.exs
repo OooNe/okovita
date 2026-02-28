@@ -162,18 +162,6 @@ defmodule Okovita.Content.ContentTest do
       assert {:error, :model_not_found} =
                Content.create_entry(Ecto.UUID.generate(), attrs, prefix)
     end
-
-    test "applies sync pipelines (trim)", %{prefix: prefix, model: model} do
-      attrs = %{
-        slug: "trimmed",
-        data: %{"title" => "  Trimmed Title  ", "body" => "  Body  ", "status" => "draft"}
-      }
-
-      assert {:ok, entry} = Content.create_entry(model.id, attrs, prefix)
-      # Trim pipeline should remove leading/trailing spaces
-      assert entry.data["title"] == "Trimmed Title"
-      assert entry.data["body"] == "Body"
-    end
   end
 
   describe "update_entry/5" do

@@ -42,6 +42,6 @@ defmodule Okovita.Content do
   defdelegate delete_entry(entry_id, prefix, actor_id \\ nil), to: Entries
   defdelegate get_entry(id, prefix), to: Entries
   defdelegate list_entries(model_id, prefix), to: Entries
-  defdelegate populate_relations(entries, model, prefix, opts \\ []), to: Entries
-  defdelegate populate_media(entries, model, prefix), to: Entries
+  defdelegate list_entries_by_parent(parent_id, parent_slug, child_slug, prefix), to: Entries
+  defdelegate populate(entries, model, prefix, opts \\ []), to: Entries
 end
