@@ -1,3 +1,4 @@
+@import "../node_modules/ckeditor5/dist/ckeditor5.css";
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";

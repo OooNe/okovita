@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "ckeditor5": "^47.3.0",
     "sortablejs": "^1.15.7"
   }
 }

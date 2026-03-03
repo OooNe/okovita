@@ -79,6 +79,11 @@ defmodule OkovitaWeb.Router do
     scope "/tenants/:tenant_slug" do
       get "/openapi.json", OpenAPIController, :show
     end
+
+    # Tenant-scoped CKEditor endpoints
+    scope "/api/tenants/:tenant_slug" do
+      post "/ckeditor/upload", CKEditorUploadController, :upload
+    end
   end
 
   # ── REST API ──────────────────────────────────────────────────────

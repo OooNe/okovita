@@ -54,11 +54,13 @@ window.addEventListener("phx:js-exec", (e) => {
     }
 })
 
+import { Hooks as CkeditorHooks } from "ckeditor5_phoenix"
+
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
     longPollFallbackMs: 2500,
     params: { _csrf_token: csrfToken },
-    hooks: Hooks
+    hooks: { ...Hooks, ...CkeditorHooks }
 })
 
 liveSocket.connect()

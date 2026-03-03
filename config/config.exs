@@ -29,7 +29,13 @@ config :esbuild,
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
-    env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
+    env: %{
+      "NODE_PATH" => [
+        Path.expand("../deps", __DIR__),
+        Path.expand("../assets/node_modules", __DIR__),
+        Mix.Project.build_path()
+      ]
+    }
   ]
 
 # Configure tailwind (the version is required)
@@ -66,8 +72,50 @@ config :okovita, :field_types, %{
   "relation_many" => Okovita.FieldTypes.RelationMany,
   "image" => Okovita.FieldTypes.Image,
   "image_gallery" => Okovita.FieldTypes.ImageGallery,
-  "rich_text" => Okovita.FieldTypes.RichText
+  "rich_text" => Okovita.FieldTypes.RichText,
+  "url" => Okovita.FieldTypes.Url,
+  "content" => Okovita.FieldTypes.Content
 }
+
+config :ckeditor5_phoenix,
+  presets: %{
+    markdown: %{
+      config: %{
+        plugins: [
+          :Heading,
+          :Bold,
+          :Italic,
+          :Link,
+          :List,
+          :BlockQuote,
+          :Markdown,
+          :Essentials,
+          :Paragraph,
+          :Image,
+          :ImageUpload,
+          :ImageToolbar,
+          :ImageCaption,
+          :ImageStyle,
+          :ImageResize,
+          :ImageInsert
+        ],
+        toolbar: [
+          :heading,
+          :|,
+          :bold,
+          :italic,
+          :link,
+          :bulletedList,
+          :numberedList,
+          :blockQuote,
+          :insertImage,
+          :|,
+          :undo,
+          :redo
+        ]
+      }
+    }
+  }
 
 # Global sync pipelines — applied to all string values in entry data
 config :okovita, :sync_pipelines, trim: Okovita.Pipeline.Sync.Trim

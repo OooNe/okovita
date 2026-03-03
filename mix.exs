@@ -62,6 +62,7 @@ defmodule Okovita.MixProject do
       # Multi-tenancy & auth
       {:bcrypt_elixir, "~> 3.0"},
       {:oban, "~> 2.17"},
+      {:ckeditor5_phoenix, "~> 1.20"},
 
       # Test
       {:ex_machina, "~> 2.8", only: :test}
@@ -80,7 +81,11 @@ defmodule Okovita.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.setup": [
+        "tailwind.install --if-missing",
+        "esbuild.install --if-missing",
+        "ckeditor5.install"
+      ],
       "assets.build": ["tailwind okovita", "esbuild okovita"],
       "assets.deploy": [
         "tailwind okovita --minify",
