@@ -98,13 +98,19 @@ defmodule Okovita.Content.ImageProcessor do
   end
 
   defp build_cache_key(id, opts) do
+    w = Map.get(opts, :w)
+    h = Map.get(opts, :h)
+    q = Map.get(opts, :q)
+    blur = Map.get(opts, :blur, 0)
+    fit = Map.get(opts, :fit)
+
     parts = [
       id,
-      "w#{opts.w || "nil"}",
-      "h#{opts.h || "nil"}",
-      "q#{opts.q}",
-      "b#{opts.blur || "0"}",
-      "f#{opts.fit}"
+      "w#{w || "nil"}",
+      "h#{h || "nil"}",
+      "q#{q}",
+      "b#{blur}",
+      "f#{fit}"
     ]
 
     "#{Enum.join(parts, "_")}.webp"

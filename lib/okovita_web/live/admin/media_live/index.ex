@@ -312,8 +312,10 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
     """
   end
 
-  defp handle_progress(:images, entry, socket) do
-    if entry.done? do
+  defp handle_progress(:images, _entry, socket) do
+    entries = socket.assigns.uploads.images.entries
+
+    if not Enum.empty?(entries) and Enum.all?(entries, & &1.done?) do
       prefix = socket.assigns.tenant_prefix
 
       results =
@@ -321,9 +323,12 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
           process_uploaded_entry(path, current_entry, prefix)
         end)
 
-      socket
-      |> MediaUploads.apply_upload_results(results)
-      |> refresh_media_list()
+      socket =
+        socket
+        |> MediaUploads.apply_upload_results(results)
+        |> refresh_media_list()
+
+      {:noreply, socket}
     else
       {:noreply, socket}
     end

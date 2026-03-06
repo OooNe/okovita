@@ -45,3 +45,6 @@ npm-debug.log
 
 .agent/
 .idea/
+
+# Cached files (e.g., media proxy)
+/priv/static/cache/
