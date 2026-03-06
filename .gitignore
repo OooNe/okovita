@@ -48,3 +48,6 @@ npm-debug.log
 
 # Cached files (e.g., media proxy)
 /priv/static/cache/
+
+# Agent test scripts
+.agent_tests/

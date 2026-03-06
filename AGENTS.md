@@ -132,4 +132,8 @@ The media subsystem is organized in three layers. **Always respect these boundar
 - When adding file upload to a new LiveView, reuse `<.upload_toast upload={@uploads.images} />` from `OkovitaWeb.MediaComponents`. Do **not** copy-paste the upload toast HTML.
 - `allow_upload` must use `auto_upload: true` and `progress: &handle_progress/3` (not `progress_event`). The `handle_progress/3` callback is where `consume_uploaded_entries` is called.
 
+## Agent Testing Guidelines
+
+- **Always** create disposable or quick test scripts (e.g. `test_*.exs`, `*.py`) inside the `.agent_tests/` directory instead of the project root. This directory is ignored by Git and prevents cluttering the main repository.
+
 <!-- usage-rules-end -->
