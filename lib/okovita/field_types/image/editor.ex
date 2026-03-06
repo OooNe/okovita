@@ -7,6 +7,7 @@ defmodule Okovita.FieldTypes.Image.Editor do
   - Pick from media library (via media-picker modal)
   """
   use Phoenix.Component
+  import OkovitaWeb.FormatHelpers
 
   attr :name, :string, required: true
   # %{id: str, url: str} or nil
@@ -21,7 +22,7 @@ defmodule Okovita.FieldTypes.Image.Editor do
       <%= if @media_value && (@media_value[:url] || @media_value["url"]) do %>
         <% url = @media_value[:url] || @media_value["url"] %>
         <div class="mb-4 relative w-32 h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
-          <img src={url} alt="Uploaded Image" class="object-cover w-full h-full" />
+          <img src={proxy_url(url, w: 200, h: 200, fit: "cover")} alt="Uploaded Image" class="object-cover w-full h-full" />
         </div>
       <% end %>
 

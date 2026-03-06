@@ -7,6 +7,7 @@ defmodule Okovita.FieldTypes.ImageGallery.Editor do
   - Pick from media library (multi-select via media-picker modal)
   """
   use Phoenix.Component
+  import OkovitaWeb.FormatHelpers
 
   attr :name, :string, required: true
   # list of %{"media_id" => id, "index" => i, "url" => url?}
@@ -26,7 +27,7 @@ defmodule Okovita.FieldTypes.ImageGallery.Editor do
           <%= for item <- @sorted_value do %>
             <div class="relative group w-full h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-move">
               <%= if item["url"] || item[:url] do %>
-                <img src={item["url"] || item[:url]} alt="Gallery Image" class="object-cover w-full h-full pointer-events-none" />
+                <img src={proxy_url(item["url"] || item[:url], w: 200, h: 200, fit: "cover")} alt="Gallery Image" class="object-cover w-full h-full pointer-events-none" />
               <% end %>
               <%!-- Hidden input to preserve media_id ordering for SortableJS and form submission --%>
               <input type="hidden" name={"#{@name}__existing[]"} value={item["media_id"]} />

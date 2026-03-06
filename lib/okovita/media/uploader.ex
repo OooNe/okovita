@@ -24,10 +24,9 @@ defmodule Okovita.Media.Uploader do
         scheme = ex_aws_config[:scheme] || "https://"
 
         public_host =
-          if Application.get_env(:okovita, :env) == :dev ||
-               System.get_env("MIX_ENV") == "dev",
-             do: "localhost",
-             else: ex_aws_config[:host] || "s3.amazonaws.com"
+          if Okovita.dev?(),
+            do: "localhost",
+            else: ex_aws_config[:host] || Application.get_env(:okovita, :s3_host)
 
         port = if ex_aws_config[:port], do: ":#{ex_aws_config[:port]}", else: ""
 

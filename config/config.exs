@@ -136,6 +136,7 @@ config :ex_aws,
   secret_access_key: [{:system, "AWS_SECRET_ACCESS_KEY"}, :instance_role]
 
 config :okovita, :s3_bucket, System.get_env("S3_BUCKET_NAME", "okovita-content")
+config :okovita, :s3_host, System.get_env("S3_HOST")
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

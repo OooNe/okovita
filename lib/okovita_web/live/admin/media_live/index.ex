@@ -281,7 +281,7 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
         </button>
 
         <%= if String.starts_with?(@item.mime_type, "image/") do %>
-          <img src={@item.url} alt={@item.file_name} loading="lazy"
+          <img src={proxy_url(@item, w: 400, fit: "cover")} alt={@item.file_name} loading="lazy"
                class={["h-full w-full object-cover object-center transition-opacity",
                        if(MapSet.member?(@selected_media, @item.id), do: "opacity-90", else: "group-hover/item:opacity-75")]} />
         <% else %>

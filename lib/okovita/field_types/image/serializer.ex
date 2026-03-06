@@ -14,10 +14,13 @@ defmodule Okovita.FieldTypes.Image.Serializer do
 
   def format(other, _options), do: other
 
+  import OkovitaWeb.FormatHelpers, only: [proxy_url: 2]
+
   defp media_json(media) do
     %{
       "id" => media.id,
-      "url" => media.url,
+      "url" => proxy_url(media, w: 1600),
+      "original_url" => media.url,
       "file_name" => media.file_name,
       "mime_type" => media.mime_type
     }

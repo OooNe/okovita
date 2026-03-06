@@ -31,6 +31,12 @@ defmodule OkovitaWeb.Router do
     live "/login", LoginLive
   end
 
+  scope "/media", OkovitaWeb do
+    pipe_through :browser
+
+    get "/:bucket/:filename", MediaProxyController, :show
+  end
+
   scope "/admin", OkovitaWeb.Admin do
     pipe_through [:browser]
 

@@ -64,8 +64,13 @@ defmodule Okovita.MixProject do
       {:oban, "~> 2.17"},
       {:ckeditor5_phoenix, "~> 1.20"},
 
+      # Utility
+      {:image, "~> 0.37"},
+      {:req, "~> 0.4"},
+
       # Test
-      {:ex_machina, "~> 2.8", only: :test}
+      {:ex_machina, "~> 2.8", only: :test},
+      {:bypass, "~> 2.1", only: :test}
     ]
   end
 

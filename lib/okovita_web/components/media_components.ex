@@ -8,6 +8,7 @@ defmodule OkovitaWeb.MediaComponents do
   use Phoenix.Component
 
   alias Okovita.Content.MediaUploads
+  import OkovitaWeb.FormatHelpers
 
   @doc """
   Renders a floating upload-progress toast panel.
@@ -210,7 +211,7 @@ defmodule OkovitaWeb.MediaComponents do
                                    do: "border-indigo-600 ring-2 ring-indigo-500/30",
                                    else: "border-gray-200 hover:border-indigo-400")]}>
                   <%= if String.starts_with?(item.mime_type, "image/") do %>
-                    <img src={item.url} alt={item.file_name} loading="lazy"
+                    <img src={proxy_url(item, w: 200, fit: "cover")} alt={item.file_name} loading="lazy"
                          class="object-cover w-full h-full transition-opacity group-hover:opacity-90" />
                   <% else %>
                     <div class="flex items-center justify-center w-full h-full bg-gray-50 text-gray-400">
