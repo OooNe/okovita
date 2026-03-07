@@ -17,7 +17,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
     if model && entry do
       # N+1 Fix: Populate media upfront to avoid DB lookups inside render
-      entry = Content.populate(entry, model, prefix)
+      entry = Content.populate(entry, model, prefix, populate: :all)
 
       socket =
         socket
@@ -107,10 +107,14 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     updated_data =
       Enum.reduce(model.schema_definition || %{}, data, fn {field_name, def}, acc_data ->
         if def["field_type"] == "image_gallery" do
-          sorted_ids_from_dom = Map.get(params, "#{field_name}__existing", [])
-          existing_data = Map.get(data, field_name, []) || []
-          merged = GalleryType.merge_sort(existing_data, sorted_ids_from_dom)
-          Map.put(acc_data, field_name, merged)
+          if Map.has_key?(params, "#{field_name}__existing") do
+            sorted_ids_from_dom = Map.get(params, "#{field_name}__existing", [])
+            existing_data = Map.get(data, field_name, []) || []
+            merged = GalleryType.merge_sort(existing_data, sorted_ids_from_dom)
+            Map.put(acc_data, field_name, merged)
+          else
+            acc_data
+          end
         else
           acc_data
         end

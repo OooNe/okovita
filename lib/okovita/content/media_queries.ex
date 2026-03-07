@@ -3,8 +3,9 @@ defmodule Okovita.Content.MediaQueries do
   Handles database queries for the Media context.
   """
   import Ecto.Query
-  alias Okovita.Repo
   alias Okovita.Content.Media
+  alias Okovita.Content.Entry
+  alias Okovita.Repo
 
   @doc """
   Creates a media record within the given tenant prefix.
@@ -73,6 +74,7 @@ defmodule Okovita.Content.MediaQueries do
       %Media{} = media ->
         # Delete from S3 storage asynchronously or ignore error to proceed with DB delete
         Okovita.Media.Uploader.delete(media.file_name)
+        remove_media_references([media_id], prefix)
         Repo.delete(media, prefix: prefix)
     end
   end
@@ -118,7 +120,52 @@ defmodule Okovita.Content.MediaQueries do
         Okovita.Media.Uploader.delete(media.file_name)
       end)
 
+      remove_media_references(media_ids, prefix)
       Repo.delete_all(from(m in Media, where: m.id in ^media_ids), prefix: prefix)
     end
   end
+
+  # Scans all entries for matching media IDs and unsets them from JSON `data` payloads
+  defp remove_media_references(media_ids, prefix) do
+    if any_media_in_use?(media_ids, prefix) do
+      # Fetch all entries to scan and update. Since JSONB schema is dynamic,
+      # Elixir parsing is safer than complex JSONB recursive arrays update queries.
+      entries = Repo.all(from(e in Entry), prefix: prefix)
+
+      Enum.each(entries, fn entry ->
+        new_data = reject_media_ids_from_data(entry.data, media_ids)
+
+        if new_data != entry.data do
+          entry
+          |> Ecto.Changeset.change(%{data: new_data})
+          |> Repo.update!(prefix: prefix)
+        end
+      end)
+    end
+  end
+
+  # Returns a new map with the specified media IDs rejected
+  defp reject_media_ids_from_data(%{} = data, []) do
+    data
+  end
+
+  defp reject_media_ids_from_data(%{} = data, ids_to_remove) when is_list(ids_to_remove) do
+    Enum.into(data, %{}, fn {k, v} -> {k, reject_value_references(v, ids_to_remove)} end)
+  end
+
+  defp reject_media_ids_from_data(data, _), do: data
+
+  defp reject_value_references(v, ids_to_remove) when is_binary(v) do
+    if v in ids_to_remove, do: "", else: v
+  end
+
+  defp reject_value_references(v, ids_to_remove) when is_list(v) do
+    Enum.reject(v, fn
+      %{"media_id" => id} -> id in ids_to_remove
+      id when is_binary(id) -> id in ids_to_remove
+      _ -> false
+    end)
+  end
+
+  defp reject_value_references(v, _ids_to_remove), do: v
 end

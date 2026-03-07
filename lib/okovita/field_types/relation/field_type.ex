@@ -31,6 +31,21 @@ defmodule Okovita.FieldTypes.Relation do
   end
 
   @impl true
-  def form_assigns(field_name, _field_def, assigns),
-    do: %{options: Map.get(assigns.relation_options, field_name, [])}
+  def form_assigns(field_name, _field_def, assigns) do
+    raw = Map.get(assigns.data, field_name)
+
+    value =
+      case raw do
+        %Okovita.Content.Entry{id: id} -> id
+        %{"id" => id} -> id
+        %{id: id} -> id
+        id when is_binary(id) -> id
+        _ -> ""
+      end
+
+    %{
+      value: value,
+      options: Map.get(assigns.relation_options, field_name, [])
+    }
+  end
 end

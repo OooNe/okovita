@@ -73,8 +73,20 @@ defmodule Okovita.FieldTypes.RelationMany do
 
   @impl true
   def form_assigns(field_name, _field_def, assigns) do
+    raw_list = Map.get(assigns.data, field_name) || []
+
+    value =
+      Enum.map(raw_list, fn
+        %Okovita.Content.Entry{id: id} -> id
+        %{"id" => id} -> id
+        %{id: id} -> id
+        id when is_binary(id) -> id
+        _ -> nil
+      end)
+      |> Enum.reject(&is_nil/1)
+
     %{
-      value: Map.get(assigns.data, field_name) || [],
+      value: value,
       options: Map.get(assigns.relation_options, field_name, [])
     }
   end

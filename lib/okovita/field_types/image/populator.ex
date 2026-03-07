@@ -10,11 +10,10 @@ defmodule Okovita.FieldTypes.Image.Populator do
   def population_target, do: :media
 
   @impl true
-  def extract_references(id) when is_binary(id) do
-    if is_uuid?(id), do: [id], else: []
+  def extract_references(value) do
+    id = Okovita.FieldTypes.Image.extract_id(value)
+    if is_binary(id) and is_uuid?(id), do: [id], else: []
   end
-
-  def extract_references(_), do: []
 
   @impl true
   def populate(id, media_map, _opts) when is_binary(id) do

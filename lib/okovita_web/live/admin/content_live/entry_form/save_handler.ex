@@ -74,40 +74,59 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm.SaveHandler do
 
     # Resolve image/gallery fields from upload ids or current picker data
     upload_data_mapped =
-      Enum.reduce(schema_definition || %{}, %{}, fn {field_name, def}, acc ->
-        if config = Registry.upload_config(def["field_type"]) do
-          uploaded_ids = Map.get(upload_ids, field_name, [])
-          {max_entries, _} = config
-
-          if max_entries == 1 do
-            if uploaded_ids != [] do
-              Map.put(acc, field_name, hd(uploaded_ids))
-            else
-              case Registry.extract_references(
-                     def["field_type"],
-                     Map.get(current_data, field_name)
-                   ) do
-                [id | _] -> Map.put(acc, field_name, id)
-                [] -> acc
-              end
-            end
-          else
-            existing_from_params = Map.get(params, "#{field_name}__existing", [])
-            all_ids = existing_from_params ++ uploaded_ids
-
-            mapped =
-              all_ids
-              |> Enum.with_index()
-              |> Enum.map(fn {id, i} -> %{"media_id" => id, "index" => i} end)
-
-            Map.put(acc, field_name, mapped)
-          end
-        else
-          acc
-        end
-      end)
+      resolve_media_upload_data(schema_definition, upload_ids, params, current_data)
 
     # Merge: upload_data_mapped > params > fallback
+    merge_final_data(schema_definition, upload_data_mapped, params)
+  end
+
+  # ── Private Helpers ─────────────────────────────────────────────────────────
+
+  defp resolve_media_upload_data(schema_definition, upload_ids, params, current_data) do
+    Enum.reduce(schema_definition || %{}, %{}, fn {field_name, def}, acc ->
+      if config = Registry.upload_config(def["field_type"]) do
+        uploaded_ids = Map.get(upload_ids, field_name, [])
+        {max_entries, _} = config
+
+        if max_entries == 1 do
+          resolve_single_media(acc, field_name, def["field_type"], uploaded_ids, current_data)
+        else
+          resolve_multiple_media(acc, field_name, uploaded_ids, params)
+        end
+      else
+        acc
+      end
+    end)
+  end
+
+  defp resolve_single_media(acc, field_name, field_type, uploaded_ids, current_data) do
+    if uploaded_ids != [] do
+      Map.put(acc, field_name, hd(uploaded_ids))
+    else
+      case Registry.extract_references(field_type, Map.get(current_data, field_name)) do
+        [id | _] -> Map.put(acc, field_name, id)
+        [] -> acc
+      end
+    end
+  end
+
+  defp resolve_multiple_media(acc, field_name, uploaded_ids, params) do
+    if uploaded_ids == [] and Map.get(params, "#{field_name}__existing") == nil do
+      acc
+    else
+      existing_from_params = Map.get(params, "#{field_name}__existing", [])
+      all_ids = existing_from_params ++ uploaded_ids
+
+      mapped =
+        all_ids
+        |> Enum.with_index()
+        |> Enum.map(fn {id, i} -> %{"media_id" => id, "index" => i} end)
+
+      Map.put(acc, field_name, mapped)
+    end
+  end
+
+  defp merge_final_data(schema_definition, upload_data_mapped, params) do
     Enum.into(schema_definition || %{}, %{}, fn {field_name, def} ->
       fallback =
         if Registry.targets_entry?(def["field_type"]) or
@@ -115,7 +134,19 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm.SaveHandler do
            do: [],
            else: ""
 
-      {field_name, Map.get(upload_data_mapped, field_name, Map.get(params, field_name, fallback))}
+      value =
+        cond do
+          Map.has_key?(upload_data_mapped, field_name) ->
+            Map.get(upload_data_mapped, field_name)
+
+          Map.has_key?(params, field_name) ->
+            Map.get(params, field_name)
+
+          true ->
+            fallback
+        end
+
+      {field_name, value}
     end)
   end
 end

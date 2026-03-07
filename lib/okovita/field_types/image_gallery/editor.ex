@@ -26,8 +26,9 @@ defmodule Okovita.FieldTypes.ImageGallery.Editor do
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" phx-hook="Sortable" id={"sortable-#{@name}"}>
           <%= for item <- @sorted_value do %>
             <div class="relative group w-full h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-move">
-              <%= if item["url"] || item[:url] do %>
-                <img src={proxy_url(item["url"] || item[:url], w: 200, h: 200, fit: "cover")} alt="Gallery Image" class="object-cover w-full h-full pointer-events-none" />
+              <%= if item["url"] || item[:url] || (item["media"] && item["media"].url) do %>
+                <% url = item["url"] || item[:url] || item["media"].url %>
+                <img src={proxy_url(url, w: 200, h: 200, fit: "cover")} alt="Gallery Image" class="object-cover w-full h-full pointer-events-none" />
               <% end %>
               <%!-- Hidden input to preserve media_id ordering for SortableJS and form submission --%>
               <input type="hidden" name={"#{@name}__existing[]"} value={item["media_id"]} />
