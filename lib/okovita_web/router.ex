@@ -73,6 +73,7 @@ defmodule OkovitaWeb.Router do
         live "/models/:model_slug/entries", ContentLive.EntryList
         live "/models/:model_slug/entries/new", ContentLive.EntryForm
         live "/models/:model_slug/entries/:id/edit", ContentLive.EntryForm
+        live "/models/:model_slug/entries/:id/history", ContentLive.EntryHistoryLive
 
         # Timeline
         live "/timeline/:entity_type/:entity_id", TimelineLive

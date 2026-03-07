@@ -32,7 +32,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           media_items: Content.list_media(prefix),
           picker_open: nil,
           picker_selection: MapSet.new(),
-          manual_slug: false
+          manual_slug: false,
+          active_field_modal: nil
         )
         |> allow_image_uploads(model)
 
@@ -60,7 +61,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           media_items: Content.list_media(prefix),
           picker_open: nil,
           picker_selection: MapSet.new(),
-          manual_slug: false
+          manual_slug: false,
+          active_field_modal: nil
         )
         |> allow_image_uploads(model)
 
@@ -68,6 +70,16 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     else
       {:ok, push_navigate(socket, to: "/admin/models")}
     end
+  end
+
+  # ── Modal Events ──────────────────────────────────────────────────────────────
+
+  def handle_event("open-field-modal", %{"field" => field}, socket) do
+    {:noreply, assign(socket, active_field_modal: field)}
+  end
+
+  def handle_event("close-field-modal", _params, socket) do
+    {:noreply, assign(socket, active_field_modal: nil)}
   end
 
   # ── Media picker events ───────────────────────────────────────────────────────
@@ -143,7 +155,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
   # ── Save ──────────────────────────────────────────────────────────────────────
 
-  def handle_event("save", params, socket) do
+  def handle_event("save", %{"action" => action} = params, socket) do
     prefix = socket.assigns.prefix
     model = socket.assigns.model
     slug = params["slug"] || ""
@@ -192,13 +204,24 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
       end
 
     case result do
-      {:ok, _entry} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Entry saved!")
-         |> push_navigate(
-           to: "/admin/tenants/#{socket.assigns.current_tenant.slug}/models/#{model.slug}/entries"
-         )}
+      {:ok, entry} ->
+        socket = socket |> put_flash(:info, "Entry saved!")
+
+        if action == "save_and_exit" do
+          {:noreply,
+           push_navigate(
+             socket,
+             to:
+               "/admin/tenants/#{socket.assigns.current_tenant.slug}/models/#{model.slug}/entries"
+           )}
+        else
+          {:noreply,
+           push_navigate(
+             socket,
+             to:
+               "/admin/tenants/#{socket.assigns.current_tenant.slug}/models/#{model.slug}/entries/#{entry.id}/edit"
+           )}
+        end
 
       {:error, %Ecto.Changeset{} = changeset} ->
         errors = format_errors(changeset)
@@ -214,9 +237,26 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
   def render(assigns) do
     ~H"""
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-8">
-        <%= if @entry, do: "Edit Entry", else: "New Entry" %> — <span class="text-indigo-600"><%= @model.name %></span>
+      <h1 class="text-2xl font-bold text-gray-900 mb-6">
+        <%= if @entry, do: "Edytuj wpis", else: "Nowy wpis" %> — <span class="text-indigo-600"><%= @model.name %></span>
       </h1>
+
+      <%= if @entry do %>
+        <div class="border-b border-gray-200 mb-8">
+          <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries/#{@entry.id}/edit"}
+               class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600"
+               aria-current="page">
+              Edycja
+            </a>
+
+            <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries/#{@entry.id}/history"}
+               class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
+              Historia
+            </a>
+          </nav>
+        </div>
+      <% end %>
 
       <form phx-submit="save" phx-change="validate" class="space-y-6">
         <div>
@@ -272,14 +312,20 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
         <% end %>
 
         <div class="mt-8 pt-6 border-t border-gray-200 flex items-center space-x-4">
-          <button type="submit"
+          <button type="submit" name="action" value="save"
+            class="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm
+                   font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none
+                   focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+            Save
+          </button>
+          <button type="submit" name="action" value="save_and_exit"
             class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm
                    font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none
                    focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-            Save Entry
+            Save and Exit
           </button>
           <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries"}
-             class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+             class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors pl-2">
             Cancel
           </a>
         </div>
@@ -300,7 +346,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
   defp build_field_assigns(field_name, field_def, assigns) do
     base = %{
       name: field_name,
-      value: Map.get(assigns.data, field_name)
+      value: Map.get(assigns.data, field_name),
+      active_field_modal: assigns[:active_field_modal]
     }
 
     extra = Registry.form_assigns(field_def["field_type"], field_name, field_def, assigns)

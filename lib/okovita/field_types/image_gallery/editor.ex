@@ -14,18 +14,63 @@ defmodule Okovita.FieldTypes.ImageGallery.Editor do
   attr :value, :list, default: []
   # entry from @uploads[field_atom]
   attr :upload, :map, required: true
+  attr :active_field_modal, :string, default: nil
 
   def render(assigns) do
     sorted_value = Enum.sort_by(assigns.value || [], & &1["index"])
     assigns = assign(assigns, :sorted_value, sorted_value)
 
     ~H"""
-    <div class="mt-2 flex flex-col space-y-4" phx-drop-target={@upload.ref}>
+    <div>
+      <%!-- Trigger Button and Mini Preview --%>
+      <div class="mt-2 flex flex-col items-start gap-3">
+        <%= if length(@sorted_value) > 0 do %>
+          <div class="flex flex-wrap gap-2">
+            <%= for item <- Enum.take(@sorted_value, 5) do %>
+              <div class="w-16 h-16 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex-shrink-0 shadow-sm">
+                <%= if item["url"] || item[:url] || (item["media"] && item["media"].url) do %>
+                  <% url = item["url"] || item[:url] || item["media"].url %>
+                  <img src={proxy_url(url, w: 100, h: 100, fit: "cover")} class="object-cover w-full h-full" />
+                <% end %>
+              </div>
+            <% end %>
+            <%= if length(@sorted_value) > 5 do %>
+              <div class="w-16 h-16 rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500 flex-shrink-0 shadow-sm">
+                +<%= length(@sorted_value) - 5 %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <button type="button" phx-click="open-field-modal" phx-value-field={@name}
+                class="w-fit px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 flex items-center gap-2 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+          <%= if length(@sorted_value) > 0, do: "Zarządzaj galerią (#{length(@sorted_value)})", else: "Dodaj zdjęcia do galerii" %>
+        </button>
+      </div>
+
+      <%!-- Modal Layer (Hidden unless active) --%>
+      <div class={if @active_field_modal == @name, do: "fixed inset-0 z-50", else: "hidden"}>
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" phx-click="close-field-modal" aria-hidden="true"></div>
+
+        <div class="fixed inset-x-4 inset-y-6 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-4xl bg-white rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-fade-in-up">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white flex-shrink-0 z-10">
+            <h3 class="text-lg font-semibold text-gray-900">Zarządzaj galerią</h3>
+            <button type="button" phx-click="close-field-modal" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100 focus:outline-none">
+              <span class="sr-only">Zamknij</span>
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="p-6 overflow-y-auto flex-1 bg-gray-50/30" phx-drop-target={@upload.ref}>
+            <div class="flex flex-col space-y-6">
       <%!-- Existing images sortable grid --%>
       <%= if length(@sorted_value) > 0 do %>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" phx-hook="Sortable" id={"sortable-#{@name}"}>
           <%= for item <- @sorted_value do %>
-            <div class="relative group w-full h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-move">
+            <div id={"gallery-item-#{item["media_id"]}"} class="relative group w-full h-32 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-move">
               <%= if item["url"] || item[:url] || (item["media"] && item["media"].url) do %>
                 <% url = item["url"] || item[:url] || item["media"].url %>
                 <img src={proxy_url(url, w: 200, h: 200, fit: "cover")} alt="Gallery Image" class="object-cover w-full h-full pointer-events-none" />
@@ -126,12 +171,24 @@ defmodule Okovita.FieldTypes.ImageGallery.Editor do
         </div>
       <% end %>
 
-      <%!-- Upload errors --%>
-      <%= for entry <- @upload.entries do %>
-        <%= for err <- upload_errors(@upload, entry) do %>
-          <p class="mt-1 text-sm text-red-600 truncate"><%= entry.client_name %>: <%= upload_error_label(err) %></p>
-        <% end %>
-      <% end %>
+              <%= for entry <- @upload.entries do %>
+                <%= for err <- upload_errors(@upload, entry) do %>
+                  <p class="mt-2 text-sm text-red-600 font-medium bg-red-50 p-3 rounded-lg border border-red-100">
+                    <svg class="w-4 h-4 inline mr-1 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <%= entry.client_name %>: <%= upload_error_label(err) %>
+                  </p>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end px-6 py-4 border-t border-gray-200 flex-shrink-0 bg-gray-50/50">
+            <button type="button" phx-click="close-field-modal" class="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors shadow-sm">
+              Zastosuj i zamknij
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end

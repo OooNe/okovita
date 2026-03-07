@@ -11,10 +11,17 @@ Hooks.Sortable = {
             animation: 150,
             ghostClass: "opacity-50",
             onEnd: (e) => {
-                let form = this.el.closest("form")
-                if (form) {
-                    // Trigger input event to simulate form change so LiveView updates its state
-                    form.dispatchEvent(new Event("input", { bubbles: true }))
+                // Find the first hidden input inside the sortable list
+                let input = this.el.querySelector("input[type='hidden']")
+                if (input) {
+                    // Trigger input event natively on the hidden input so LiveView catches the change correctly
+                    input.dispatchEvent(new Event("input", { bubbles: true }))
+                } else {
+                    // Fallback to form if no inputs exist yet
+                    let form = this.el.closest("form")
+                    if (form) {
+                        form.dispatchEvent(new Event("input", { bubbles: true }))
+                    }
                 }
             }
         })

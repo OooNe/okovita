@@ -40,6 +40,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryList do
             <tr>
               <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Slug</th>
               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Created</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Last Edit</th>
               <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right text-sm font-semibold text-gray-900">Actions</th>
             </tr>
           </thead>
@@ -48,6 +49,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryList do
               <tr class="hover:bg-gray-50 transition-colors group">
                 <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6"><%= entry.slug %></td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= Calendar.strftime(entry.inserted_at, "%Y-%m-%d %H:%M") %></td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= Calendar.strftime(entry.updated_at, "%Y-%m-%d %H:%M") %></td>
                 <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-3">
                   <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries/#{entry.id}/edit"} class="text-indigo-600 hover:text-indigo-900">Edit</a>
                   <a href={"/admin/tenants/#{@current_tenant.slug}/timeline/entry/#{entry.id}"} class="text-gray-500 hover:text-gray-900">History</a>

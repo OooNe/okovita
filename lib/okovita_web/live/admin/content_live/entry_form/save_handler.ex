@@ -111,11 +111,13 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm.SaveHandler do
   end
 
   defp resolve_multiple_media(acc, field_name, uploaded_ids, params) do
-    if uploaded_ids == [] and Map.get(params, "#{field_name}__existing") == nil do
+    existing_from_params = Map.get(params, "#{field_name}__existing")
+
+    if uploaded_ids == [] and is_nil(existing_from_params) do
       acc
     else
-      existing_from_params = Map.get(params, "#{field_name}__existing", [])
-      all_ids = existing_from_params ++ uploaded_ids
+      existing_ids = existing_from_params || []
+      all_ids = existing_ids ++ uploaded_ids
 
       mapped =
         all_ids
