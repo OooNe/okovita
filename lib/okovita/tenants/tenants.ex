@@ -210,10 +210,15 @@ defmodule Okovita.Tenants do
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       slug varchar(255) NOT NULL,
       name varchar(255) NOT NULL,
+      slug_field varchar(255),
       schema_definition jsonb NOT NULL DEFAULT '{}',
       inserted_at timestamp(0) WITHOUT TIME ZONE NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
       updated_at timestamp(0) WITHOUT TIME ZONE NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
     )
+    """)
+
+    Repo.query!("""
+    ALTER TABLE "#{prefix}".content_models ADD COLUMN IF NOT EXISTS slug_field varchar(255);
     """)
 
     Repo.query!("""

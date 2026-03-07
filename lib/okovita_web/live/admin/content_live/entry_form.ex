@@ -31,7 +31,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           relation_options: load_relation_options(model, prefix),
           media_items: Content.list_media(prefix),
           picker_open: nil,
-          picker_selection: MapSet.new()
+          picker_selection: MapSet.new(),
+          manual_slug: false
         )
         |> allow_image_uploads(model)
 
@@ -58,7 +59,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           relation_options: load_relation_options(model, prefix),
           media_items: Content.list_media(prefix),
           picker_open: nil,
-          picker_selection: MapSet.new()
+          picker_selection: MapSet.new(),
+          manual_slug: false
         )
         |> allow_image_uploads(model)
 
@@ -98,11 +100,18 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     {:noreply, cancel_upload(socket, String.to_existing_atom(name), ref)}
   end
 
+  # ── Slug Toggle ───────────────────────────────────────────────────────────────
+
+  def handle_event("toggle-manual-slug", _params, socket) do
+    {:noreply, assign(socket, manual_slug: not socket.assigns.manual_slug)}
+  end
+
   # ── Validate (SortableJS drag support) ───────────────────────────────────────
 
   def handle_event("validate", params, socket) do
     model = socket.assigns.model
     data = socket.assigns.data
+    entry = socket.assigns.entry
 
     updated_data =
       Enum.reduce(model.schema_definition || %{}, data, fn {field_name, def}, acc_data ->
@@ -120,7 +129,16 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
         end
       end)
 
-    {:noreply, assign(socket, data: updated_data)}
+    slug =
+      if is_nil(entry) and model.slug_field and not socket.assigns.manual_slug do
+        target_value = Map.get(params, model.slug_field, "")
+        {:ok, base_slug} = Okovita.Pipeline.Sync.Slugify.apply(to_string(target_value), nil)
+        base_slug
+      else
+        Map.get(params, "slug", socket.assigns.slug)
+      end
+
+    {:noreply, assign(socket, data: updated_data, slug: slug)}
   end
 
   # ── Save ──────────────────────────────────────────────────────────────────────
@@ -202,11 +220,29 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
       <form phx-submit="save" phx-change="validate" class="space-y-6">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
-          <input type="text" name="slug" value={@slug} required
-            class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm
-                   placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500
-                   sm:text-sm" />
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-sm font-medium text-gray-700">Slug</label>
+            <%= if @model.slug_field do %>
+              <button type="button" phx-click="toggle-manual-slug" class="text-xs text-indigo-600 hover:text-indigo-800 focus:outline-none flex items-center gap-1 transition-colors">
+                <%= if @manual_slug do %>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd" /></svg>
+                  Auto-generate
+                <% else %>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg>
+                  Edit manually
+                <% end %>
+              </button>
+            <% end %>
+          </div>
+
+          <input type="text" name="slug" value={@slug} required={unless @model.slug_field && !@manual_slug, do: true, else: false}
+            readonly={if @model.slug_field && !@manual_slug, do: true, else: false}
+            class={["appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500",
+                    if(@model.slug_field && !@manual_slug, do: "bg-gray-100 cursor-not-allowed text-gray-500", else: "placeholder-gray-400")]} />
+
+          <%= if @model.slug_field && !@manual_slug do %>
+            <p class="mt-1 text-xs text-gray-500">Slug is automatically generated based on the <span class="font-semibold"><%= @model.slug_field %></span> field.</p>
+          <% end %>
         </div>
 
         <%= for {field_name, field_def} <- @model.schema_definition do %>

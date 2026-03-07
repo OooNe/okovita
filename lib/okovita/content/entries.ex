@@ -8,6 +8,7 @@ defmodule Okovita.Content.Entries do
   alias Okovita.Repo
   alias Okovita.Content.{Entry, DynamicChangeset, Models}
   alias Okovita.Timeline.Auditor
+  alias Okovita.Content.SlugGenerator
 
   import Ecto.Query
   import Okovita.Content.Entries.Utils
@@ -27,7 +28,8 @@ defmodule Okovita.Content.Entries do
 
       model ->
         data = Map.get(attrs, :data) || Map.get(attrs, "data", %{})
-        slug = Map.get(attrs, :slug) || Map.get(attrs, "slug")
+
+        slug = SlugGenerator.build(attrs, data, model, prefix)
 
         # Validate data against the model's schema_definition
         case DynamicChangeset.build(model.schema_definition, data) do
@@ -192,4 +194,6 @@ defmodule Okovita.Content.Entries do
 
   defdelegate populate(entries, model, prefix, opts \\ []),
     to: Okovita.Content.Entries.Population
+
+  # --- Prywatne
 end

@@ -14,7 +14,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       {:ok,
        assign(socket,
          model: model,
-         form_data: %{slug: model.slug, name: model.name},
+         form_data: %{slug: model.slug, name: model.name, slug_field: model.slug_field},
          fields: schema_to_field_list(model.schema_definition),
          field_types: Registry.registered_types(),
          available_models: available_models,
@@ -33,7 +33,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     {:ok,
      assign(socket,
        model: nil,
-       form_data: %{slug: "", name: ""},
+       form_data: %{slug: "", name: "", slug_field: nil},
        fields: [],
        field_types: Registry.registered_types(),
        available_models: available_models,
@@ -97,6 +97,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       attrs = %{
         slug: params["slug"],
         name: params["name"],
+        slug_field: if(params["slug_field"] in ["", nil], do: nil, else: params["slug_field"]),
         schema_definition: schema_definition
       }
 
@@ -146,7 +147,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       </div>
 
       <form phx-change="update-form" phx-submit="save" id="model-form" class="space-y-8">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8 border-b border-gray-200">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-8 border-b border-gray-200">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
             <input type="text" name="name" value={@form_data[:name]} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
@@ -154,6 +155,18 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Slug <span class="text-red-500">*</span></label>
             <input type="text" name="slug" value={@form_data[:slug]} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Slug generated from field (optional)</label>
+            <select name="slug_field" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <option value="">- Manual entry -</option>
+              <%= for field <- @fields, field["field_type"] == "text" do %>
+                <option value={field["key"]} selected={@form_data[:slug_field] == field["key"]}>
+                  <%= if field["label"] == "", do: field["key"], else: field["label"] %> (<%= field["key"] %>)
+                </option>
+              <% end %>
+            </select>
+            <p class="mt-1 text-xs text-gray-500">Select a text field to automatically generate slug from it during entry creation.</p>
           </div>
         </div>
 

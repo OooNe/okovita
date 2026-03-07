@@ -21,13 +21,14 @@ defmodule Okovita.Content.Model do
   schema "content_models" do
     field :slug, :string
     field :name, :string
+    field :slug_field, :string
     field :schema_definition, :map, default: %{}
 
     timestamps()
   end
 
   @required_fields ~w(slug name schema_definition)a
-  @optional_fields ~w()a
+  @optional_fields ~w(slug_field)a
 
   def changeset(model, attrs) do
     model
@@ -39,6 +40,24 @@ defmodule Okovita.Content.Model do
     )
     |> unique_constraint(:slug)
     |> validate_schema_definition()
+    |> validate_slug_field()
+  end
+
+  defp validate_slug_field(changeset) do
+    validate_change(changeset, :slug_field, fn :slug_field, slug_field ->
+      definition = get_field(changeset, :schema_definition) || %{}
+
+      case Map.get(definition, slug_field) do
+        nil ->
+          [slug_field: "wskazuje na nieistniejące pole '#{slug_field}'"]
+
+        %{"field_type" => "text"} ->
+          []
+
+        %{"field_type" => type} ->
+          [slug_field: "może wskazywać tylko na polat typu 'text' (wybrano '#{type}')"]
+      end
+    end)
   end
 
   defp validate_schema_definition(changeset) do
