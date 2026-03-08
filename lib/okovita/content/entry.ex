@@ -17,6 +17,7 @@ defmodule Okovita.Content.Entry do
   schema "content_entries" do
     field :slug, :string
     field :data, :map, default: %{}
+    field :published_at, :utc_datetime
 
     belongs_to :model, Model
 
@@ -45,5 +46,13 @@ defmodule Okovita.Content.Entry do
         "must start with a letter or digit and contain only lowercase letters, digits, hyphens, and underscores"
     )
     |> unique_constraint([:model_id, :slug])
+  end
+
+  def publish_changeset(entry) do
+    change(entry, published_at: DateTime.utc_now() |> DateTime.truncate(:second))
+  end
+
+  def unpublish_changeset(entry) do
+    change(entry, published_at: nil)
   end
 end

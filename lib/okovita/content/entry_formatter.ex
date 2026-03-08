@@ -26,6 +26,7 @@ defmodule Okovita.Content.EntryFormatter do
           slug: entry.slug,
           model_id: entry.model_id,
           model_slug: if(model, do: model.slug),
+          published_at: entry.published_at,
           inserted_at: entry.inserted_at,
           updated_at: entry.updated_at
         },

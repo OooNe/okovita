@@ -222,6 +222,10 @@ defmodule Okovita.Tenants do
     """)
 
     Repo.query!("""
+    ALTER TABLE "#{prefix}".content_models ADD COLUMN IF NOT EXISTS publishable boolean NOT NULL DEFAULT false;
+    """)
+
+    Repo.query!("""
     CREATE UNIQUE INDEX IF NOT EXISTS content_models_slug_index
       ON "#{prefix}".content_models (slug)
     """)
@@ -246,6 +250,10 @@ defmodule Okovita.Tenants do
     Repo.query!("""
     CREATE INDEX IF NOT EXISTS content_entries_model_id_index
       ON "#{prefix}".content_entries (model_id)
+    """)
+
+    Repo.query!("""
+    ALTER TABLE "#{prefix}".content_entries ADD COLUMN IF NOT EXISTS published_at timestamp(0) WITHOUT TIME ZONE;
     """)
 
     # Create timeline table

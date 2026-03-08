@@ -19,7 +19,12 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
         |> json(%{error: %{message: "Model not found"}})
 
       model ->
-        entries = Content.list_entries(model.id, prefix)
+        entries =
+          if model.publishable do
+            Content.list_published_entries(model.id, prefix)
+          else
+            Content.list_entries(model.id, prefix)
+          end
 
         populated_entries =
           entries
@@ -35,7 +40,8 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
     with_metadata = opts[:with_metadata]
 
     with model when not is_nil(model) <- Content.get_model_by_slug(model_slug, prefix),
-         entry when not is_nil(entry) <- Content.get_entry(id, prefix) do
+         entry when not is_nil(entry) <- Content.get_entry(id, prefix),
+         true <- !model.publishable or entry.published_at != nil do
       populated_entry =
         entry
         |> Content.populate(model, prefix, opts)
@@ -43,6 +49,11 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
       json(conn, EntryFormatter.format(populated_entry, model, with_metadata))
     else
       nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: %{message: "Not found"}})
+
+      false ->
         conn
         |> put_status(:not_found)
         |> json(%{error: %{message: "Not found"}})
@@ -156,8 +167,15 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
 
     case Content.list_entries_by_parent(parent_id, parent_slug, child_slug, prefix) do
       {child_model, entries} ->
+        filtered_entries =
+          if child_model.publishable do
+            Enum.filter(entries, & &1.published_at)
+          else
+            entries
+          end
+
         populated_entries =
-          entries
+          filtered_entries
           |> Content.populate(child_model, prefix, opts)
 
         json(

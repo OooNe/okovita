@@ -19,7 +19,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       {:ok,
        assign(socket,
          model: model,
-         form_data: %{slug: model.slug, name: model.name, slug_field: model.slug_field},
+         form_data: %{slug: model.slug, name: model.name, slug_field: model.slug_field, publishable: model.publishable},
          fields: fields,
          field_types: Registry.registered_types(),
          available_models: available_models,
@@ -38,7 +38,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     {:ok,
      assign(socket,
        model: nil,
-       form_data: %{slug: "", name: "", slug_field: nil},
+       form_data: %{slug: "", name: "", slug_field: nil, publishable: false},
        fields: [],
        field_types: Registry.registered_types(),
        available_models: available_models,
@@ -119,6 +119,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
         slug: params["slug"],
         name: params["name"],
         slug_field: if(params["slug_field"] in ["", nil], do: nil, else: params["slug_field"]),
+        publishable: params["publishable"] == "true",
         schema_definition: schema_definition
       }
 
@@ -182,6 +183,16 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
             <.input type="select" name="slug_field" label="Slug generated from field" value={@form_data[:slug_field]} prompt="- Manual entry -"
               options={Enum.map(@fields, fn f -> {if(f["label"] == "", do: f["key"], else: f["label"]) <> " (" <> f["key"] <> ")", f["key"]} end) |> Enum.filter(fn {_, k} -> Enum.find(@fields, &(&1["key"] == k))["field_type"] == "text" end)} />
             <p class="mt-1 text-xs text-gray-500 italic">Select a text field to automatically generate slug from it.</p>
+          </div>
+
+          <div class="flex items-center md:pt-8">
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="hidden" name="publishable" value="false" />
+              <input type="checkbox" name="publishable" value="true" checked={@form_data[:publishable]} class="sr-only peer" />
+              <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+              <span class="ml-3 text-sm font-medium text-gray-700">Publishable</span>
+            </label>
+            <p class="ml-2 text-xs text-gray-500 italic">Entries require explicit publishing to be visible via API.</p>
           </div>
         </div>
 

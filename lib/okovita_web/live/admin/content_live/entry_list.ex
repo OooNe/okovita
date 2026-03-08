@@ -22,6 +22,18 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryList do
     {:noreply, assign(socket, entries: entries)}
   end
 
+  def handle_event("publish-" <> entry_id, _params, socket) do
+    Content.publish_entry(entry_id, socket.assigns.prefix)
+    entries = Content.list_entries(socket.assigns.model.id, socket.assigns.prefix)
+    {:noreply, assign(socket, entries: entries)}
+  end
+
+  def handle_event("unpublish-" <> entry_id, _params, socket) do
+    Content.unpublish_entry(entry_id, socket.assigns.prefix)
+    entries = Content.list_entries(socket.assigns.model.id, socket.assigns.prefix)
+    {:noreply, assign(socket, entries: entries)}
+  end
+
   def render(assigns) do
     ~H"""
     <div class="space-y-6">
@@ -39,6 +51,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryList do
           <thead class="bg-gray-50">
             <tr>
               <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Slug</th>
+              <th :if={@model.publishable} scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Published</th>
               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Created</th>
               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Last Edit</th>
               <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right text-sm font-semibold text-gray-900">Actions</th>
@@ -48,11 +61,29 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryList do
             <%= for entry <- @entries do %>
               <tr class="hover:bg-gray-50 transition-colors group">
                 <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6"><%= entry.slug %></td>
+                <td :if={@model.publishable} class="whitespace-nowrap px-3 py-4 text-sm">
+                  <%= if entry.published_at do %>
+                    <span class="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                      <%= Calendar.strftime(entry.published_at, "%Y-%m-%d %H:%M") %>
+                    </span>
+                  <% else %>
+                    <span class="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+                      Draft
+                    </span>
+                  <% end %>
+                </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= Calendar.strftime(entry.inserted_at, "%Y-%m-%d %H:%M") %></td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= Calendar.strftime(entry.updated_at, "%Y-%m-%d %H:%M") %></td>
                 <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-3">
                   <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries/#{entry.id}/edit"} class="text-indigo-600 hover:text-indigo-900">Edit</a>
                   <a href={"/admin/tenants/#{@current_tenant.slug}/timeline/entry/#{entry.id}"} class="text-gray-500 hover:text-gray-900">History</a>
+                  <%= if @model.publishable do %>
+                    <%= if entry.published_at do %>
+                      <button phx-click={"unpublish-#{entry.id}"} class="text-yellow-600 hover:text-yellow-900 font-medium">Unpublish</button>
+                    <% else %>
+                      <button phx-click={"publish-#{entry.id}"} class="text-green-600 hover:text-green-900 font-medium">Publish</button>
+                    <% end %>
+                  <% end %>
                   <button phx-click={"delete-#{entry.id}"} class="text-red-600 hover:text-red-900 font-medium">Delete</button>
                 </td>
               </tr>

@@ -22,13 +22,14 @@ defmodule Okovita.Content.Model do
     field :slug, :string
     field :name, :string
     field :slug_field, :string
+    field :publishable, :boolean, default: false
     field :schema_definition, :map, default: %{}
 
     timestamps()
   end
 
   @required_fields ~w(slug name schema_definition)a
-  @optional_fields ~w(slug_field)a
+  @optional_fields ~w(slug_field publishable)a
 
   def changeset(model, attrs) do
     model

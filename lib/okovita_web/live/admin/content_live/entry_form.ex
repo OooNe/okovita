@@ -96,6 +96,29 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
   def handle_event("picker-cancel", _params, socket),
     do: PickerHandler.cancel(socket)
 
+  # ── Publish/Unpublish ─────────────────────────────────────────────────────────
+
+  def handle_event("toggle-publish", _params, socket) do
+    entry = socket.assigns.entry
+    prefix = socket.assigns.prefix
+
+    result =
+      if entry.published_at do
+        Content.unpublish_entry(entry.id, prefix)
+      else
+        Content.publish_entry(entry.id, prefix)
+      end
+
+    case result do
+      {:ok, updated_entry} ->
+        action = if updated_entry.published_at, do: "opublikowano", else: "odpublikowano"
+        {:noreply, socket |> assign(entry: updated_entry) |> put_flash(:info, "Wpis #{action}.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Nie udało się zmienić statusu publikacji.")}
+    end
+  end
+
   # ── Gallery events ────────────────────────────────────────────────────────────
 
   def handle_event("remove-gallery-image", %{"name" => name, "index" => index_str}, socket) do
@@ -228,7 +251,33 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-8">
       <h1 class="text-2xl font-bold text-gray-900 mb-6">
         <%= if @entry, do: "Edytuj wpis", else: "Nowy wpis" %> — <span class="text-indigo-600"><%= @model.name %></span>
+        <%= if @entry && @model.publishable do %>
+          <%= if @entry.published_at do %>
+            <span class="ml-3 inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+              Published <%= Calendar.strftime(@entry.published_at, "%Y-%m-%d %H:%M") %>
+            </span>
+          <% else %>
+            <span class="ml-3 inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+              Draft
+            </span>
+          <% end %>
+        <% end %>
       </h1>
+
+      <%= if @entry && @model.publishable do %>
+        <div class="mb-6">
+          <button type="button" phx-click="toggle-publish" class={[
+            "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold shadow-sm transition-colors",
+            if(@entry.published_at, do: "bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20 hover:bg-yellow-100", else: "bg-green-600 text-white hover:bg-green-500")
+          ]}>
+            <%= if @entry.published_at do %>
+              <.icon name="hero-eye-slash" class="w-4 h-4" /> Unpublish
+            <% else %>
+              <.icon name="hero-eye" class="w-4 h-4" /> Publish
+            <% end %>
+          </button>
+        </div>
+      <% end %>
 
       <%= if @entry do %>
         <div class="border-b border-gray-200 mb-8">

@@ -358,4 +358,90 @@ defmodule Okovita.Content.ContentTest do
       assert updated_article.data["category"] == ""
     end
   end
+
+  # ── Publishable ────────────────────────────────────────────────────
+
+  describe "publishable models" do
+    setup %{prefix: prefix} do
+      {:ok, model} =
+        Content.create_model(
+          %{
+            slug: "publishable-blog",
+            name: "Publishable Blog",
+            publishable: true,
+            schema_definition: @blog_schema
+          },
+          prefix
+        )
+
+      {:ok, entry} =
+        Content.create_entry(
+          model.id,
+          %{
+            slug: "draft-post",
+            data: %{"title" => "Draft Post", "body" => "Content", "status" => "draft"}
+          },
+          prefix
+        )
+
+      %{model: model, entry: entry}
+    end
+
+    test "creates a publishable model", %{model: model} do
+      assert model.publishable == true
+    end
+
+    test "entries start as drafts (published_at is nil)", %{entry: entry} do
+      assert is_nil(entry.published_at)
+    end
+
+    test "publish_entry sets published_at", %{prefix: prefix, entry: entry} do
+      assert {:ok, published} = Content.publish_entry(entry.id, prefix)
+      assert published.published_at != nil
+    end
+
+    test "unpublish_entry clears published_at", %{prefix: prefix, entry: entry} do
+      {:ok, published} = Content.publish_entry(entry.id, prefix)
+      assert published.published_at != nil
+
+      assert {:ok, unpublished} = Content.unpublish_entry(published.id, prefix)
+      assert is_nil(unpublished.published_at)
+    end
+
+    test "list_published_entries returns only published entries", %{
+      prefix: prefix,
+      model: model,
+      entry: entry
+    } do
+      # Create another entry and publish it
+      {:ok, entry2} =
+        Content.create_entry(
+          model.id,
+          %{
+            slug: "published-post",
+            data: %{"title" => "Published Post", "body" => "Content", "status" => "published"}
+          },
+          prefix
+        )
+
+      {:ok, _} = Content.publish_entry(entry2.id, prefix)
+
+      # list_published_entries should only return the published one
+      published = Content.list_published_entries(model.id, prefix)
+      assert length(published) == 1
+      assert Enum.at(published, 0).id == entry2.id
+
+      # list_entries should return both
+      all = Content.list_entries(model.id, prefix)
+      assert length(all) == 2
+    end
+
+    test "publish_entry returns :not_found for missing entry", %{prefix: prefix} do
+      assert {:error, :not_found} = Content.publish_entry(Ecto.UUID.generate(), prefix)
+    end
+
+    test "unpublish_entry returns :not_found for missing entry", %{prefix: prefix} do
+      assert {:error, :not_found} = Content.unpublish_entry(Ecto.UUID.generate(), prefix)
+    end
+  end
 end

@@ -195,5 +195,74 @@ defmodule Okovita.Content.Entries do
   defdelegate populate(entries, model, prefix, opts \\ []),
     to: Okovita.Content.Entries.Population
 
+  @doc "Publishes an entry by setting its published_at timestamp."
+  @spec publish_entry(binary(), String.t(), binary() | nil) ::
+          {:ok, Entry.t()} | {:error, any()}
+  def publish_entry(entry_id, prefix, actor_id \\ nil) do
+    case get_entry(entry_id, prefix) do
+      nil ->
+        {:error, :not_found}
+
+      entry ->
+        result =
+          Multi.new()
+          |> Multi.update(:entry, Entry.publish_changeset(entry), prefix: prefix)
+          |> Auditor.insert_audit(
+            "entry",
+            "publish",
+            actor_id,
+            fn %{entry: updated} ->
+              {entry.id, %{published_at: entry.published_at}, %{published_at: updated.published_at}}
+            end,
+            prefix: prefix
+          )
+          |> Repo.transaction()
+
+        case result do
+          {:ok, %{entry: entry}} -> {:ok, entry}
+          {:error, :entry, changeset, _} -> {:error, changeset}
+        end
+    end
+  end
+
+  @doc "Unpublishes an entry by clearing its published_at timestamp."
+  @spec unpublish_entry(binary(), String.t(), binary() | nil) ::
+          {:ok, Entry.t()} | {:error, any()}
+  def unpublish_entry(entry_id, prefix, actor_id \\ nil) do
+    case get_entry(entry_id, prefix) do
+      nil ->
+        {:error, :not_found}
+
+      entry ->
+        result =
+          Multi.new()
+          |> Multi.update(:entry, Entry.unpublish_changeset(entry), prefix: prefix)
+          |> Auditor.insert_audit(
+            "entry",
+            "unpublish",
+            actor_id,
+            fn %{entry: updated} ->
+              {entry.id, %{published_at: entry.published_at}, %{published_at: updated.published_at}}
+            end,
+            prefix: prefix
+          )
+          |> Repo.transaction()
+
+        case result do
+          {:ok, %{entry: entry}} -> {:ok, entry}
+          {:error, :entry, changeset, _} -> {:error, changeset}
+        end
+    end
+  end
+
+  @doc "Lists only published entries for a model."
+  def list_published_entries(model_id, prefix) do
+    from(e in Entry,
+      where: e.model_id == ^model_id and not is_nil(e.published_at),
+      order_by: [desc: e.inserted_at]
+    )
+    |> Repo.all(prefix: prefix)
+  end
+
   # --- Prywatne
 end
