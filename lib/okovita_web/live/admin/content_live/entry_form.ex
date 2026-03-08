@@ -249,35 +249,28 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
   def render(assigns) do
     ~H"""
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-8">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">
-        <%= if @entry, do: "Edytuj wpis", else: "Nowy wpis" %> — <span class="text-indigo-600"><%= @model.name %></span>
-        <%= if @entry && @model.publishable do %>
-          <%= if @entry.published_at do %>
-            <span class="ml-3 inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-              Published <%= Calendar.strftime(@entry.published_at, "%Y-%m-%d %H:%M") %>
-            </span>
-          <% else %>
-            <span class="ml-3 inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
-              Draft
-            </span>
-          <% end %>
-        <% end %>
-      </h1>
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <%= if @entry, do: "Edytuj wpis", else: "Nowy wpis" %> — <span class="text-indigo-600"><%= @model.name %></span>
+          <span :if={@entry && @model.publishable && @entry.published_at} class="inline-flex items-center rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+            Published <%= Calendar.strftime(@entry.published_at, "%Y-%m-%d %H:%M") %>
+          </span>
+          <span :if={@entry && @model.publishable && !@entry.published_at} class="inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+            Draft
+          </span>
+        </h1>
 
-      <%= if @entry && @model.publishable do %>
-        <div class="mb-6">
-          <button type="button" phx-click="toggle-publish" class={[
-            "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold shadow-sm transition-colors",
-            if(@entry.published_at, do: "bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20 hover:bg-yellow-100", else: "bg-green-600 text-white hover:bg-green-500")
-          ]}>
-            <%= if @entry.published_at do %>
-              <.icon name="hero-eye-slash" class="w-4 h-4" /> Unpublish
-            <% else %>
-              <.icon name="hero-eye" class="w-4 h-4" /> Publish
-            <% end %>
-          </button>
-        </div>
-      <% end %>
+        <button :if={@entry && @model.publishable && @entry.published_at} type="button" phx-click="toggle-publish"
+          class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold shadow-sm transition-colors bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20 hover:bg-yellow-100">
+          <.icon name="hero-eye-slash" class="w-4 h-4" />
+          Unpublish
+        </button>
+        <button :if={@entry && @model.publishable && !@entry.published_at} type="button" phx-click="toggle-publish"
+          class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold shadow-sm transition-colors bg-green-600 text-white hover:bg-green-500">
+          <.icon name="hero-eye" class="w-4 h-4" />
+          Publish
+        </button>
+      </div>
 
       <%= if @entry do %>
         <div class="border-b border-gray-200 mb-8">
