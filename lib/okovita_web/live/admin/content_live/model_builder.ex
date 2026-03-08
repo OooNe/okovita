@@ -11,11 +11,16 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     available_models = Content.list_models(prefix)
 
     if model do
+      fields =
+        model.schema_definition
+        |> schema_to_field_list()
+        |> sort_fields()
+
       {:ok,
        assign(socket,
          model: model,
          form_data: %{slug: model.slug, name: model.name, slug_field: model.slug_field},
-         fields: schema_to_field_list(model.schema_definition),
+         fields: fields,
          field_types: Registry.registered_types(),
          available_models: available_models,
          prefix: prefix
@@ -47,7 +52,8 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       "key" => "",
       "field_type" => "text",
       "label" => "",
-      "required" => false
+      "required" => false,
+      "position" => length(socket.assigns.fields)
     }
 
     fields = socket.assigns.fields ++ [new_field]
@@ -59,8 +65,23 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     {:noreply, assign(socket, fields: fields)}
   end
 
+  def handle_event("update-form", %{"fields_order" => order}, socket) do
+    # Sortable hook sends the list of IDs in the new order
+    fields =
+      order
+      |> Enum.with_index()
+      |> Enum.reduce(socket.assigns.fields, fn {id, index}, acc ->
+        Enum.map(acc, fn
+          %{"id" => ^id} = f -> Map.put(f, "position", index)
+          f -> f
+        end)
+      end)
+      |> sort_fields()
+
+    {:noreply, assign(socket, fields: fields)}
+  end
+
   def handle_event("update-form", _params, socket) do
-    # Only triggered if form changes outside of field-specific handlers
     {:noreply, socket}
   end
 
@@ -91,7 +112,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     if Enum.empty?(errors_list) do
       schema_definition =
         Enum.reduce(fields, %{}, fn f, acc ->
-          Map.put(acc, f["key"], Map.take(f, ["label", "field_type", "required", "target_model"]))
+          Map.put(acc, f["key"], Map.take(f, ["label", "field_type", "required", "target_model", "position"]))
         end)
 
       attrs = %{
@@ -139,51 +160,49 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
   @spec render(any()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
+    <Layouts.app flash={@flash} current_scope={:admin}>
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-8 my-8">
-      <div class="border-b border-gray-200 pb-5 mb-8">
+      <div class="border-b border-gray-200 pb-5 mb-8 flex items-center justify-between">
         <h1 class="text-2xl font-bold leading-tight text-gray-900">
           <%= if @model, do: "Edit Model", else: "New Model" %>
         </h1>
+        <div class="flex items-center gap-4">
+          <a href={"/admin/tenants/#{@current_tenant.slug}/models"} class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+            Back to models
+          </a>
+        </div>
       </div>
 
       <form phx-change="update-form" phx-submit="save" id="model-form" class="space-y-8">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-8 border-b border-gray-200">
+          <.input type="text" name="name" label="Name" value={@form_data[:name]} required placeholder="e.g. BlogPost" />
+          <.input type="text" name="slug" label="Slug" value={@form_data[:slug]} required placeholder="e.g. blog_post" class="font-mono" />
+          
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
-            <input type="text" name="name" value={@form_data[:name]} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Slug <span class="text-red-500">*</span></label>
-            <input type="text" name="slug" value={@form_data[:slug]} required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Slug generated from field (optional)</label>
-            <select name="slug_field" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              <option value="">- Manual entry -</option>
-              <%= for field <- @fields, field["field_type"] == "text" do %>
-                <option value={field["key"]} selected={@form_data[:slug_field] == field["key"]}>
-                  <%= if field["label"] == "", do: field["key"], else: field["label"] %> (<%= field["key"] %>)
-                </option>
-              <% end %>
-            </select>
-            <p class="mt-1 text-xs text-gray-500">Select a text field to automatically generate slug from it during entry creation.</p>
+            <.input type="select" name="slug_field" label="Slug generated from field" value={@form_data[:slug_field]} prompt="- Manual entry -"
+              options={Enum.map(@fields, fn f -> {if(f["label"] == "", do: f["key"], else: f["label"]) <> " (" <> f["key"] <> ")", f["key"]} end) |> Enum.filter(fn {_, k} -> Enum.find(@fields, &(&1["key"] == k))["field_type"] == "text" end)} />
+            <p class="mt-1 text-xs text-gray-500 italic">Select a text field to automatically generate slug from it.</p>
           </div>
         </div>
 
         <div>
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-gray-900">Fields</h2>
-            <button type="button" phx-click="add-field" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-              <svg class="-ml-1 mr-2 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-              </svg>
+          <div class="flex justify-between items-center mb-6">
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900">Fields</h2>
+              <p class="text-sm text-gray-500 mt-1">Define the available fields for this model and their order.</p>
+            </div>
+            <.button type="button" phx-click="add-field" variant="secondary">
+              <.icon name="hero-plus" class="w-4 h-4 mr-2" />
               Add Field
-            </button>
+            </.button>
           </div>
 
-          <div class="space-y-4">
+          <div class="space-y-4" phx-hook="Sortable" id="fields-list">
             <%= for field <- @fields do %>
-              <OkovitaWeb.Admin.ContentLive.FieldConfigurator.render field={field} field_types={@field_types} available_models={@available_models} model={@model} />
+              <div id={field["id"]} class="group">
+                <input type="hidden" name="fields_order[]" value={field["id"]} />
+                <OkovitaWeb.Admin.ContentLive.FieldConfigurator.render field={field} field_types={@field_types} available_models={@available_models} model={@model} />
+              </div>
             <% end %>
 
             <%= if Enum.empty?(@fields) do %>
@@ -198,12 +217,13 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
           </div>
         </div>
 
-        <div class="mt-8 pt-6 border-t border-gray-200 flex items-center space-x-4">
-          <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">Save Model</button>
+        <div class="mt-8 pt-6 border-t border-gray-200 flex items-center justify-end space-x-4">
           <a href={"/admin/tenants/#{@current_tenant.slug}/models"} class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Cancel</a>
+          <.button type="submit">Save Model</.button>
         </div>
       </form>
     </div>
+    </Layouts.app>
     """
   end
 
@@ -211,7 +231,12 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     schema_def
     |> Enum.map(fn {key, attrs} ->
       Map.merge(attrs, %{"id" => Ecto.UUID.generate(), "key" => key})
+      |> Map.put_new("position", 0)
     end)
+  end
+
+  defp sort_fields(fields) do
+    Enum.sort_by(fields, & &1["position"])
   end
 
   defp validate_fields(fields, current_model_slug) do

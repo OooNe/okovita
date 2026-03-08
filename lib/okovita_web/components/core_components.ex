@@ -173,6 +173,44 @@ defmodule OkovitaWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders a [Heroicon](https://heroicons.com).
+
+  Heroicons come in three styles – outline, solid, and mini.
+  By default, the outline style is used, but solid and mini may
+  be applied by using the `-solid` and `-mini` suffix respectively.
+
+  ## Examples
+
+      <.icon name="hero-x-mark-solid" />
+      <.icon name="hero-arrow-path" class="ml-1 w-3 h-3 animate-spin" />
+  """
+  attr :name, :string, required: true
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  def icon(%{name: "hero-plus"} = assigns) do
+    ~H"""
+    <svg class={[@class]} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" {@rest}>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+    """
+  end
+
+  def icon(%{name: "hero-x-mark"} = assigns) do
+    ~H"""
+    <svg class={[@class]} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" {@rest}>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+    """
+  end
+
+  def icon(%{name: "hero-" <> _} = assigns) do
+    ~H"""
+    <span class={[@name, @class]} {@rest} />
+    """
+  end
+
   # Default error translation for UI feedback.
   if Code.ensure_loaded?(OkovitaWeb.CoreComponents) do
     # Simple fallback since we don't have Gettext set up globally directly easily callable here.

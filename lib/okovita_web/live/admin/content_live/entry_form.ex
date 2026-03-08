@@ -285,7 +285,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
           <% end %>
         </div>
 
-        <%= for {field_name, field_def} <- @model.schema_definition do %>
+        <%= for {field_name, field_def} <- (@model.schema_definition || %{}) |> Enum.sort_by(fn {_name, attrs} -> attrs["position"] || 0 end) do %>
           <div>
             <label for={field_name} class="block text-sm font-medium text-gray-700 mb-1">
               <%= field_def["label"] %>

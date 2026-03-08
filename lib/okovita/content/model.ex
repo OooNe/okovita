@@ -89,6 +89,9 @@ defmodule Okovita.Content.Model do
             not Map.has_key?(field_def, "required") ->
               add_error(cs, :schema_definition, "field '#{field_name}' is missing 'required'")
 
+            Map.has_key?(field_def, "position") and not is_integer(field_def["position"]) ->
+              add_error(cs, :schema_definition, "field '#{field_name}' position must be an integer")
+
             field_def["field_type"] not in registered ->
               add_error(
                 cs,

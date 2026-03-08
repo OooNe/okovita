@@ -85,9 +85,11 @@ defmodule OkovitaWeb do
 
       # Core UI components
       import Phoenix.Component
+      import OkovitaWeb.CoreComponents
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
+      alias OkovitaWeb.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

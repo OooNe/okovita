@@ -23,11 +23,19 @@ defmodule OkovitaWeb.Layouts do
     """
   end
 
+  attr :flash, :map, required: true
+  attr :current_scope, :any, default: nil
+  slot :inner_block
+
   def app(assigns) do
     ~H"""
     <main>
       <.flash_group flash={@flash} />
-      <%= @inner_content %>
+      <%= if assigns[:inner_content] do %>
+        <%= @inner_content %>
+      <% else %>
+        <%= render_slot(@inner_block) %>
+      <% end %>
     </main>
     """
   end
