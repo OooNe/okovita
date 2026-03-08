@@ -65,6 +65,7 @@ custom classes must fully style the input
 - Read the docs and options before using tasks (by using `mix help task_name`)
 - To debug test failures, run tests in a specific file with `mix test test/my_test.exs` or run all previously failed tests with `mix test --failed`
 - `mix deps.clean --all` is **almost never needed**. **Avoid** using it unless you have good reason
+- **Do NOT run `mix compile` or `mix test` after every feature or fix** — this wastes tokens unnecessarily. The user will run tests themselves at the end of a session, or explicitly ask you to do so. Only run compile/test when asked, or when diagnosing a specific error that requires it.
 
 ## Test guidelines
 

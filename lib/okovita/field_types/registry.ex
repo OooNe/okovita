@@ -161,6 +161,30 @@ defmodule Okovita.FieldTypes.Registry do
   end
 
   @doc """
+  Merges form params into `current_data` for a given field type by delegating
+  to the field type module's `merge_validate_params/3` callback.
+
+  Returns `current_data` unchanged if the callback is not implemented.
+  """
+  @spec merge_validate_params(String.t(), String.t(), map(), map()) :: map()
+  def merge_validate_params(type_name, field_name, params, current_data)
+      when is_binary(type_name) do
+    case Agent.get(__MODULE__, &Map.get(&1, type_name)) do
+      nil ->
+        current_data
+
+      module ->
+        Code.ensure_loaded?(module)
+
+        if function_exported?(module, :merge_validate_params, 3) do
+          module.merge_validate_params(field_name, params, current_data)
+        else
+          current_data
+        end
+    end
+  end
+
+  @doc """
   Formats the value for the API response based on the field type module's implementation.
   Defaults to returning the value as-is if the field type doesn't implement a specific formatter.
 

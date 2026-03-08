@@ -11,6 +11,7 @@ defmodule Okovita.FieldTypes.Behaviour do
   - `editor_component/0` — Phoenix.Component module for the editor UI
   - `upload_config/0` — LiveView upload configuration `{max_entries, accept}`
   - `form_assigns/3` — extra assigns to merge into the editor component's assigns
+  - `merge_validate_params/3` — merge form params into the current data map during validation
   """
 
   @doc "Returns the Ecto primitive type (e.g. `:string`, `:integer`, `:float`, `:boolean`, `:date`, `:utc_datetime`)."
@@ -82,10 +83,26 @@ defmodule Okovita.FieldTypes.Behaviour do
               assigns :: map()
             ) :: map()
 
+  @doc """
+  Merges form params into the `current_data` map during the `validate` event.
+
+  Called for each field when the user changes a form value. The field type
+  can use this to extract and transform its specific params (e.g. sorted IDs
+  from SortableJS, or multi-select checkboxes) and return the updated data map.
+
+  Returns `current_data` unchanged if the field type does not need special handling.
+  """
+  @callback merge_validate_params(
+              field_name :: String.t(),
+              params :: map(),
+              current_data :: map()
+            ) :: map()
+
   @optional_callbacks [
     editor_component: 0,
     configurator_component: 0,
     upload_config: 0,
-    form_assigns: 3
+    form_assigns: 3,
+    merge_validate_params: 3
   ]
 end

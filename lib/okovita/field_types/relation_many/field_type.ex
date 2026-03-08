@@ -90,4 +90,13 @@ defmodule Okovita.FieldTypes.RelationMany do
       options: Map.get(assigns.relation_options, field_name, [])
     }
   end
+
+  @impl true
+  def merge_validate_params(field_name, params, current_data) do
+    if Map.has_key?(params, field_name) do
+      Map.put(current_data, field_name, Map.get(params, field_name, []))
+    else
+      current_data
+    end
+  end
 end

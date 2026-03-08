@@ -113,6 +113,19 @@ defmodule Okovita.FieldTypes.ImageGallery do
     }
   end
 
+  @impl true
+  def merge_validate_params(field_name, params, current_data) do
+    param_key = "#{field_name}__existing"
+
+    if Map.has_key?(params, param_key) do
+      sorted_ids = Map.get(params, param_key, [])
+      existing = Map.get(current_data, field_name, []) || []
+      Map.put(current_data, field_name, merge_sort(existing, sorted_ids))
+    else
+      current_data
+    end
+  end
+
   # ── Normalization helpers ─────────────────────────────────────────────────────
 
   @doc """

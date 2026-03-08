@@ -127,18 +127,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
 
     updated_data =
       Enum.reduce(model.schema_definition || %{}, data, fn {field_name, def}, acc_data ->
-        if def["field_type"] == "image_gallery" do
-          if Map.has_key?(params, "#{field_name}__existing") do
-            sorted_ids_from_dom = Map.get(params, "#{field_name}__existing", [])
-            existing_data = Map.get(data, field_name, []) || []
-            merged = GalleryType.merge_sort(existing_data, sorted_ids_from_dom)
-            Map.put(acc_data, field_name, merged)
-          else
-            acc_data
-          end
-        else
-          acc_data
-        end
+        Registry.merge_validate_params(def["field_type"], field_name, params, acc_data)
       end)
 
     slug =
