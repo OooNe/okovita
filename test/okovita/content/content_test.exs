@@ -253,4 +253,109 @@ defmodule Okovita.Content.ContentTest do
       assert length(entries) == 3
     end
   end
+
+  # ── Delete Model ────────────────────────────────────────────────────
+
+  describe "delete_model/3" do
+    test "deletes model and all its entries", %{prefix: prefix} do
+      {:ok, model} =
+        Content.create_model(
+          %{slug: "to-delete", name: "To Delete", schema_definition: @blog_schema},
+          prefix
+        )
+
+      for i <- 1..3 do
+        Content.create_entry(
+          model.id,
+          %{
+            slug: "entry-#{i}",
+            data: %{"title" => "E#{i}", "body" => "B#{i}", "status" => "draft"}
+          },
+          prefix
+        )
+      end
+
+      assert length(Content.list_entries(model.id, prefix)) == 3
+      assert {:ok, deleted} = Content.delete_model(model.id, prefix)
+      assert deleted.id == model.id
+      assert is_nil(Content.get_model(model.id, prefix))
+      assert Content.list_entries(model.id, prefix) == []
+    end
+
+    test "returns :not_found for nonexistent model", %{prefix: prefix} do
+      assert {:error, :not_found} = Content.delete_model(Ecto.UUID.generate(), prefix)
+    end
+
+    test "deletes model with zero entries", %{prefix: prefix} do
+      {:ok, model} =
+        Content.create_model(
+          %{slug: "empty-model", name: "Empty", schema_definition: @blog_schema},
+          prefix
+        )
+
+      assert {:ok, _} = Content.delete_model(model.id, prefix)
+      assert is_nil(Content.get_model(model.id, prefix))
+    end
+
+    test "cleans orphaned relation references in other models' entries", %{prefix: prefix} do
+      # Create the target model (will be deleted)
+      {:ok, target} =
+        Content.create_model(
+          %{slug: "categories", name: "Categories", schema_definition: @blog_schema},
+          prefix
+        )
+
+      # Create a category entry
+      {:ok, cat_entry} =
+        Content.create_entry(
+          target.id,
+          %{
+            slug: "cat-1",
+            data: %{"title" => "Cat 1", "body" => "Body", "status" => "draft"}
+          },
+          prefix
+        )
+
+      # Create a model with a relation field pointing to "categories"
+      relation_schema = %{
+        "title" => %{
+          "field_type" => "text",
+          "label" => "Title",
+          "required" => true
+        },
+        "category" => %{
+          "field_type" => "relation",
+          "label" => "Category",
+          "required" => false,
+          "target_model" => "categories"
+        }
+      }
+
+      {:ok, referencing_model} =
+        Content.create_model(
+          %{slug: "articles", name: "Articles", schema_definition: relation_schema},
+          prefix
+        )
+
+      # Create an entry in the referencing model that references the category
+      {:ok, article} =
+        Content.create_entry(
+          referencing_model.id,
+          %{
+            slug: "article-1",
+            data: %{"title" => "Article 1", "category" => cat_entry.id}
+          },
+          prefix
+        )
+
+      assert article.data["category"] == cat_entry.id
+
+      # Delete the target model
+      assert {:ok, _} = Content.delete_model(target.id, prefix)
+
+      # Verify the relation reference was cleaned
+      updated_article = Content.get_entry(article.id, prefix)
+      assert updated_article.data["category"] == ""
+    end
+  end
 end

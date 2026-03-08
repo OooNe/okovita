@@ -15,6 +15,7 @@ defmodule Okovita.Content do
 
   defdelegate create_model(attrs, prefix, actor_id \\ nil), to: Models
   defdelegate update_model(model_id, attrs, prefix, actor_id \\ nil), to: Models
+  defdelegate delete_model(model_id, prefix, actor_id \\ nil), to: Models
   defdelegate get_model(id, prefix), to: Models
   defdelegate get_model_by_slug(slug, prefix), to: Models
   defdelegate list_models(prefix), to: Models

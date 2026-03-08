@@ -71,6 +71,20 @@ defmodule OkovitaWeb.Transports.REST.Controllers.ModelController do
     end
   end
 
+  def delete(conn, %{"id" => id}) do
+    prefix = conn.assigns.tenant_prefix
+
+    case Content.delete_model(id, prefix) do
+      {:ok, _model} ->
+        send_resp(conn, :no_content, "")
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: %{message: "Model not found"}})
+    end
+  end
+
   defp model_json(model) do
     %{
       id: model.id,
