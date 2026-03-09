@@ -2,8 +2,104 @@ import "phoenix_html"
 import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
 import Sortable from "sortablejs"
+import Cropper from "cropperjs"
 
 let Hooks = {}
+
+Hooks.ImageCropper = {
+    mounted() {
+        this._initCropper()
+
+        // Listen for a trigger from the server to extract cropped data
+        this.handleEvent("crop-extract", (payload) => {
+            const { mode, media_id } = payload
+            this._extractCrop(mode, media_id)
+        })
+    },
+
+    updated() {
+        // When the hook element is updated (e.g. new image src), reinit the cropper
+        this._destroyCropper()
+        this._initCropper()
+    },
+
+    destroyed() {
+        this._destroyCropper()
+    },
+
+    _initCropper() {
+        const img = this.el.querySelector("img[data-crop-image]")
+        if (!img) return
+
+        // Wait for the image to load before initializing
+        if (img.complete && img.naturalWidth > 0) {
+            this._createCropper(img)
+        } else {
+            img.addEventListener("load", () => this._createCropper(img), { once: true })
+        }
+    },
+
+    _createCropper(img) {
+        this.cropper = new Cropper(img, {
+            template: '<cropper-canvas background>'
+                + '<cropper-image rotatable scalable skewable translatable></cropper-image>'
+                + '<cropper-shade hidden></cropper-shade>'
+                + '<cropper-handle action="select" plain></cropper-handle>'
+                + '<cropper-selection initial-coverage="0.8" movable resizable zoomable>'
+                + '<cropper-grid role="grid" bordered covered></cropper-grid>'
+                + '<cropper-crosshair centered></cropper-crosshair>'
+                + '<cropper-handle action="move" theme-color="rgba(255, 255, 255, 0.35)"></cropper-handle>'
+                + '<cropper-handle action="n-resize"></cropper-handle>'
+                + '<cropper-handle action="e-resize"></cropper-handle>'
+                + '<cropper-handle action="s-resize"></cropper-handle>'
+                + '<cropper-handle action="w-resize"></cropper-handle>'
+                + '<cropper-handle action="ne-resize"></cropper-handle>'
+                + '<cropper-handle action="nw-resize"></cropper-handle>'
+                + '<cropper-handle action="se-resize"></cropper-handle>'
+                + '<cropper-handle action="sw-resize"></cropper-handle>'
+                + '</cropper-selection>'
+                + '</cropper-canvas>',
+        })
+    },
+
+    _destroyCropper() {
+        if (this.cropper) {
+            this.cropper.destroy()
+            this.cropper = null
+        }
+    },
+
+    async _extractCrop(mode, mediaId) {
+        if (!this.cropper) return
+
+        const selection = this.cropper.getCropperSelection()
+        if (!selection) return
+
+        try {
+            const canvas = await selection.$toCanvas()
+            
+            const blob = await new Promise((resolve, reject) => {
+                canvas.toBlob((b) => {
+                    if (b) resolve(b)
+                    else reject(new Error("blob generation failed"))
+                }, "image/jpeg", 0.92)
+            })
+
+            const reader = new FileReader()
+            reader.onloadend = () => {
+                const base64 = reader.result.split(",")[1]
+                this.pushEvent("crop-result", {
+                    data: base64,
+                    mode: mode,
+                    media_id: mediaId,
+                })
+            }
+            reader.readAsDataURL(blob)
+        } catch (e) {
+            console.error("ImageCropper: extraction failed:", e)
+        }
+    },
+}
 
 Hooks.Sortable = {
     mounted() {

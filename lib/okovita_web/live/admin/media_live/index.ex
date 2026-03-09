@@ -20,6 +20,7 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
       |> assign(:media_to_delete, nil)
       |> assign(:media_in_use_warning, false)
       |> assign(:selected_media, MapSet.new())
+      |> assign(:crop_media, nil)
       |> allow_upload(:images,
         accept: ~w(.jpg .jpeg .png .gif .webp),
         max_entries: 20,
@@ -148,6 +149,74 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
   end
 
   @impl true
+  def handle_event("open-crop", %{"id" => id}, socket) do
+    prefix = socket.assigns.tenant_prefix
+    media = Content.get_media(id, prefix)
+
+    if media && String.starts_with?(media.mime_type, "image/") do
+      {:noreply, assign(socket, :crop_media, media)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel-crop", _params, socket) do
+    {:noreply, assign(socket, :crop_media, nil)}
+  end
+
+  @impl true
+  def handle_event("crop-request-replace", _params, socket) do
+    if media = socket.assigns.crop_media do
+      {:noreply, push_event(socket, "crop-extract", %{mode: "replace", media_id: media.id})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("crop-request-new", _params, socket) do
+    if media = socket.assigns.crop_media do
+      {:noreply, push_event(socket, "crop-extract", %{mode: "new", media_id: media.id})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("crop-result", %{"data" => base64, "mode" => mode, "media_id" => media_id}, socket) do
+    prefix = socket.assigns.tenant_prefix
+    media = Content.get_media(media_id, prefix)
+
+    if media do
+      binary = Base.decode64!(base64)
+      crop_mode = String.to_existing_atom(mode)
+
+      case Content.save_cropped_image(binary, media, prefix, crop_mode) do
+        {:ok, _saved_media} ->
+          flash_msg =
+            case crop_mode do
+              :replace -> "Obraz został pomyślnie przycięty i zastąpiony."
+              :new -> "Przycięty obraz został zapisany jako nowy zasób."
+            end
+
+          socket =
+            socket
+            |> assign(:crop_media, nil)
+            |> refresh_media_list()
+            |> put_flash(:info, flash_msg)
+
+          {:noreply, socket}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Nie udało się zapisać przyciętego obrazu.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Nie znaleziono zasobu do przycięcia.")}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <form id="media-library-form" phx-change="validate" phx-submit="save"
@@ -161,6 +230,7 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
       <.media_grid media_items={@media_items} selected_media={@selected_media} />
       <.delete_confirmation_modal media_to_delete={@media_to_delete} in_use_warning={@media_in_use_warning} />
     </form>
+    <.crop_modal crop_media={@crop_media} />
     """
   end
 
@@ -294,12 +364,21 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
           </div>
         <% end %>
 
-        <button type="button" phx-click="request-delete" phx-value-id={@item.id}
-                class="absolute top-2 right-2 bg-white bg-opacity-75 rounded-full p-1.5 text-gray-700 hover:text-red-600 hover:bg-opacity-100 transition-all opacity-0 group-hover/item:opacity-100 shadow-sm z-10">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-all z-10">
+          <%= if String.starts_with?(@item.mime_type, "image/") do %>
+            <button type="button" phx-click="open-crop" phx-value-id={@item.id}
+                    class="bg-white bg-opacity-75 rounded-full p-1.5 text-gray-700 hover:text-indigo-600 hover:bg-opacity-100 transition-all shadow-sm"
+                    title="Przytnij obraz">
+              <.icon name="hero-crop" class="w-4 h-4" />
+            </button>
+          <% end %>
+          <button type="button" phx-click="request-delete" phx-value-id={@item.id}
+                  class="bg-white bg-opacity-75 rounded-full p-1.5 text-gray-700 hover:text-red-600 hover:bg-opacity-100 transition-all shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="p-3 flex flex-col flex-1">
         <p class="text-xs font-medium text-gray-900 truncate" title={@item.file_name}><%= @item.file_name %></p>
@@ -311,6 +390,79 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
     </div>
     """
   end
+
+  # ── Crop Modal ───────────────────────────────────────────────────
+
+  attr :crop_media, :map, default: nil
+
+  defp crop_modal(assigns) do
+    ~H"""
+    <%= if @crop_media do %>
+      <%!-- Backdrop --%>
+      <div class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-40 animate-fade-in"
+           phx-click="cancel-crop" />
+
+      <%!-- Panel --%>
+      <div class="fixed inset-4 sm:inset-6 md:inset-10 bg-white rounded-2xl shadow-2xl z-50
+                  flex flex-col overflow-hidden animate-fade-in-up">
+
+        <%!-- Header --%>
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">Przytnij obraz</h2>
+            <p class="text-xs text-gray-500 mt-0.5">
+              Zaznacz obszar, który chcesz zachować: <span class="font-medium text-gray-700"><%= @crop_media.file_name %></span>
+            </p>
+          </div>
+          <button type="button" phx-click="cancel-crop"
+                  class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <%!-- Cropper area --%>
+        <div id={"crop-container-#{@crop_media.id}"} phx-hook="ImageCropper"
+             class="flex-1 overflow-hidden bg-gray-100 flex items-center justify-center p-4">
+          <img data-crop-image
+               src={proxy_url(@crop_media, w: 1600)}
+               alt={@crop_media.file_name}
+               crossorigin="anonymous"
+               class="max-w-full max-h-full" />
+        </div>
+
+        <%!-- Footer --%>
+        <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 flex-shrink-0 bg-gray-50/50">
+          <span class="text-sm text-gray-500">
+            Wybierz akcję po przycięciu
+          </span>
+          <div class="flex gap-3">
+            <button type="button" phx-click="cancel-crop"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300
+                           rounded-lg hover:bg-gray-50 transition-colors">
+              Anuluj
+            </button>
+            <button type="button" phx-click="crop-request-replace"
+                    class="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg
+                           hover:bg-amber-700 transition-colors flex items-center gap-2">
+              <.icon name="hero-arrow-path" class="w-4 h-4" />
+              Zastąp oryginał
+            </button>
+            <button type="button" phx-click="crop-request-new"
+                    class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg
+                           hover:bg-indigo-700 transition-colors flex items-center gap-2">
+              <.icon name="hero-plus" class="w-4 h-4" />
+              Zapisz jako nowy
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+    """
+  end
+
+  # ── Upload Progress ──────────────────────────────────────────────
 
   defp handle_progress(:images, _entry, socket) do
     entries = socket.assigns.uploads.images.entries
@@ -351,6 +503,6 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
 
   defp refresh_media_list(socket) do
     media_items = Content.list_media(socket.assigns.tenant_prefix)
-    {:noreply, assign(socket, media_items: media_items)}
+    assign(socket, media_items: media_items)
   end
 end

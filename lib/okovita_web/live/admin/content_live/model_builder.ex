@@ -23,7 +23,9 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
          fields: fields,
          field_types: Registry.registered_types(),
          available_models: available_models,
-         prefix: prefix
+         prefix: prefix,
+         show_json_modal: false,
+         json_definition: ""
        )}
     else
       {:ok,
@@ -42,7 +44,9 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
        fields: [],
        field_types: Registry.registered_types(),
        available_models: available_models,
-       prefix: prefix
+       prefix: prefix,
+       show_json_modal: false,
+       json_definition: ""
      )}
   end
 
@@ -81,8 +85,40 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     {:noreply, assign(socket, fields: fields)}
   end
 
-  def handle_event("update-form", _params, socket) do
-    {:noreply, socket}
+  def handle_event("update-form", params, socket) do
+    form_data = %{
+      slug: params["slug"],
+      name: params["name"],
+      slug_field: if(params["slug_field"] in ["", nil], do: nil, else: params["slug_field"]),
+      publishable: params["publishable"] == "true"
+    }
+
+    {:noreply, assign(socket, form_data: form_data)}
+  end
+
+  def handle_event("show-json", _params, socket) do
+    fields = socket.assigns.fields
+    form_data = socket.assigns.form_data
+
+    schema_definition =
+      Enum.reduce(fields, %{}, fn f, acc ->
+        Map.put(acc, f["key"], Map.take(f, ["label", "field_type", "required", "target_model", "position"]))
+      end)
+
+    attrs = %{
+      slug: form_data[:slug],
+      name: form_data[:name],
+      slug_field: form_data[:slug_field],
+      publishable: form_data[:publishable],
+      schema_definition: schema_definition
+    }
+
+    json = Jason.encode!(attrs, pretty: true)
+    {:noreply, assign(socket, show_json_modal: true, json_definition: json)}
+  end
+
+  def handle_event("close-json", _params, socket) do
+    {:noreply, assign(socket, show_json_modal: false)}
   end
 
   def handle_event("update-field", params, socket) do
@@ -206,14 +242,20 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
         <div>
           <div class="flex justify-between items-center mb-6">
             <div>
-              <h2 class="text-xl font-semibold text-gray-900">Fields</h2>
-              <p class="text-sm text-gray-500 mt-1">Define the available fields for this model and their order.</p>
-            </div>
+            <h2 class="text-xl font-semibold text-gray-900">Fields</h2>
+            <p class="text-sm text-gray-500 mt-1">Define the available fields for this model and their order.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <.button type="button" phx-click="show-json" phx-target="#model-form" variant="secondary">
+              <.icon name="hero-information-circle" class="w-4 h-4 mr-2" />
+              View JSON
+            </.button>
             <.button type="button" phx-click="add-field" variant="secondary">
               <.icon name="hero-plus" class="w-4 h-4 mr-2" />
               Add Field
             </.button>
           </div>
+        </div>
 
           <div class="space-y-4" phx-hook="Sortable" id="fields-list">
             <%= for field <- @fields do %>
@@ -241,6 +283,23 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
         </div>
       </form>
     </div>
+
+    <.modal id="json-modal" show={@show_json_modal} on_close="close-json">
+      <:title>Model Definition JSON</:title>
+      <div class="mt-4">
+        <div class="flex justify-between items-center mb-2">
+          <p class="text-sm text-gray-500">Copy this JSON to use in other environments or for backup.</p>
+          <button type="button" onclick={"navigator.clipboard.writeText(#{inspect(@json_definition)})"} class="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+            <.icon name="hero-check" class="w-4 h-4" />
+            Copy to clipboard
+          </button>
+        </div>
+        <pre class="p-4 bg-gray-900 text-gray-100 rounded-lg overflow-x-auto text-xs font-mono max-h-[60vh]"><%= @json_definition %></pre>
+      </div>
+      <:footer>
+        <.button type="button" phx-click="close-json" variant="secondary">Close</.button>
+      </:footer>
+    </.modal>
     </Layouts.app>
     """
   end

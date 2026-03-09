@@ -51,4 +51,37 @@ defmodule Okovita.Media.Uploader do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  @doc """
+  Uploads raw binary data to S3 under the given file_name.
+  Used when overwriting an existing file (e.g. crop-replace).
+  """
+  def upload_binary(binary, file_name, content_type) do
+    bucket = Application.get_env(:okovita, :s3_bucket, "okovita-content")
+
+    case ExAws.S3.put_object(bucket, file_name, binary,
+           content_type: content_type,
+           acl: :public_read
+         )
+         |> ExAws.request() do
+      {:ok, _} ->
+        ex_aws_config = ExAws.Config.new(:s3)
+        scheme = ex_aws_config[:scheme] || "https://"
+
+        public_host =
+          if Okovita.dev?(),
+            do: "localhost",
+            else: ex_aws_config[:host] || Application.get_env(:okovita, :s3_host)
+
+        port = if ex_aws_config[:port], do: ":#{ex_aws_config[:port]}", else: ""
+
+        url = "#{scheme}#{public_host}#{port}/#{bucket}/#{file_name}"
+
+        {:ok,
+         %{url: url, file_name: file_name, size: byte_size(binary), mime_type: content_type}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 end

@@ -6,6 +6,7 @@ defmodule OkovitaWeb.CoreComponents do
   labels) promoting consistency across the admin panel.
   """
   use Phoenix.Component
+  alias Phoenix.LiveView.JS
 
   @doc """
   Renders a simple styled button.
@@ -174,6 +175,71 @@ defmodule OkovitaWeb.CoreComponents do
   end
 
   @doc """
+  Renders a modal.
+
+  ## Attributes
+  - `id` - required id
+  - `show` - boolean to control visibility
+  - `on_close` - JS command or string event to push when clicking backdrop/close
+  """
+  attr :id, :string, required: true
+  attr :show, :boolean, default: false
+  attr :on_close, :any, default: nil
+  slot :inner_block, required: true
+  slot :title
+  slot :footer
+
+  def modal(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      phx-mounted={@show && JS.show(transition: {"transition-all ease-out duration-300", "opacity-0", "opacity-100"})}
+      class={["relative z-50", !@show && "hidden"]}
+    >
+      <%!-- Backdrop --%>
+      <div
+        class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"
+        aria-hidden="true"
+        phx-click={@on_close}
+      />
+
+      <%!-- Modal Panel --%>
+      <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+          <div
+            class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-2xl animate-fade-in-up"
+            phx-click-away={@on_close}
+          >
+            <%!-- Header --%>
+            <div :if={render_slot(@title)} class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 class="text-lg font-semibold text-gray-900">
+                <%= render_slot(@title) %>
+              </h3>
+              <button
+                type="button"
+                phx-click={@on_close}
+                class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+              >
+                <.icon name="hero-x-mark" class="w-5 h-5" />
+              </button>
+            </div>
+
+            <div class="px-6 py-6">
+              <%= render_slot(@inner_block) %>
+            </div>
+
+            <%!-- Footer --%>
+            <div :if={render_slot(@footer)} class="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
+              <%= render_slot(@footer) %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders a [Heroicon](https://heroicons.com).
 
   Heroicons come in three styles – outline, solid, and mini.
@@ -242,6 +308,22 @@ defmodule OkovitaWeb.CoreComponents do
     ~H"""
     <svg class={["shrink-0", @class]} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" {@rest}>
       <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+    </svg>
+    """
+  end
+
+  def icon(%{name: "hero-crop"} = assigns) do
+    ~H"""
+    <svg class={["shrink-0", @class]} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" {@rest}>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 3v15m0 0h15M3 6h15v15" />
+    </svg>
+    """
+  end
+
+  def icon(%{name: "hero-arrow-path"} = assigns) do
+    ~H"""
+    <svg class={["shrink-0", @class]} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" {@rest}>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
     </svg>
     """
   end

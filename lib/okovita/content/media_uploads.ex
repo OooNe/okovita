@@ -52,4 +52,36 @@ defmodule Okovita.Content.MediaUploads do
   def upload_error_label(:too_many_files), do: "Wybrałeś zbyt dużo plików"
   def upload_error_label(:not_accepted), do: "Wybrałeś niedozwolony typ pliku"
   def upload_error_label(_), do: "Nieznany błąd wgrywania"
+
+  @doc """
+  Saves a cropped image binary.
+
+  ## Modes
+  - `:replace` – overwrites the S3 file for the given media and updates the DB record.
+  - `:new` – uploads as a brand-new file and creates a new DB record.
+
+  Returns `{:ok, media}` or `{:error, reason}`.
+  """
+  def save_cropped_image(binary, media, prefix, mode) when mode in [:replace, :new] do
+    content_type = "image/jpeg"
+
+    case mode do
+      :replace ->
+        with {:ok, attrs} <- Uploader.upload_binary(binary, media.file_name, content_type),
+             {:ok, updated} <-
+               Content.update_media(media, %{size: attrs.size, url: attrs.url}, prefix) do
+          {:ok, updated}
+        end
+
+      :new ->
+        # Generate a new file name based on the original
+        base = Path.rootname(media.file_name)
+        new_name = "#{base}_crop_#{Ecto.UUID.generate()}.jpg"
+
+        with {:ok, attrs} <- Uploader.upload_binary(binary, new_name, content_type),
+             {:ok, new_media} <- Content.create_media(attrs, prefix) do
+          {:ok, new_media}
+        end
+    end
+  end
 end

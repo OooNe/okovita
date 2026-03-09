@@ -17,6 +17,15 @@ defmodule Okovita.Content.MediaQueries do
   end
 
   @doc """
+  Updates an existing media record within the given tenant prefix.
+  """
+  def update_media(%Media{} = media, attrs, prefix) do
+    media
+    |> Media.changeset(attrs)
+    |> Repo.update(prefix: prefix)
+  end
+
+  @doc """
   Gets a single media record by ID within the given tenant prefix.
   """
   def get_media!(id, prefix) do

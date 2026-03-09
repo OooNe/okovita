@@ -31,10 +31,14 @@ defmodule Okovita.Content do
   defdelegate any_media_in_use?(media_ids, prefix), to: MediaQueries
   defdelegate delete_media(media_id, prefix), to: MediaQueries
   defdelegate delete_all_media(media_ids, prefix), to: MediaQueries
+  defdelegate update_media(media, attrs, prefix), to: MediaQueries
 
   defdelegate process_and_create_media(path, name, type, prefix),
     to: Okovita.Content.MediaUploads,
     as: :process_and_create
+
+  defdelegate save_cropped_image(binary, media, prefix, mode),
+    to: Okovita.Content.MediaUploads
 
   # ── Entries ───────────────────────────────────────────────────────
 

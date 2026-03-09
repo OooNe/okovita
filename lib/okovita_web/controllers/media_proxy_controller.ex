@@ -7,7 +7,10 @@ defmodule OkovitaWeb.MediaProxyController do
     if proc_params == :empty do
       # No processing parameters -> redirect directly to S3
       public_s3_url = build_s3_url(bucket, filename, :public)
-      redirect(conn, external: public_s3_url)
+
+      conn
+      |> put_resp_header("access-control-allow-origin", "*")
+      |> redirect(external: public_s3_url)
     else
       id_part = Path.rootname(filename)
       internal_s3_url = build_s3_url(bucket, filename, :internal)
@@ -20,6 +23,7 @@ defmodule OkovitaWeb.MediaProxyController do
         {:ok, binary, mime_type} ->
           conn
           |> put_resp_header("cache-control", "public, max-age=31536000")
+          |> put_resp_header("access-control-allow-origin", "*")
           |> put_resp_content_type(mime_type)
           |> send_resp(200, binary)
 
