@@ -5,6 +5,9 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
   alias Okovita.Content
   alias Okovita.FieldTypes.Registry
 
+  @persisted_field_keys ~w(label field_type required target_model position
+                           validation_regex min_length max_length min max)
+
   def mount(%{"id" => id}, _session, socket) do
     prefix = socket.assigns.tenant_prefix
     model = Content.get_model(id, prefix)
@@ -25,7 +28,9 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
          available_models: available_models,
          prefix: prefix,
          show_json_modal: false,
-         json_definition: ""
+         json_definition: "",
+         regex_test_results: %{},
+         validation_open: MapSet.new()
        )}
     else
       {:ok,
@@ -46,7 +51,9 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
        available_models: available_models,
        prefix: prefix,
        show_json_modal: false,
-       json_definition: ""
+       json_definition: "",
+       regex_test_results: %{},
+       validation_open: MapSet.new()
      )}
   end
 
@@ -102,7 +109,8 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
 
     schema_definition =
       Enum.reduce(fields, %{}, fn f, acc ->
-        Map.put(acc, f["key"], Map.take(f, ["label", "field_type", "required", "target_model", "position"]))
+        field_data = f |> Map.take(@persisted_field_keys) |> reject_blank_values()
+        Map.put(acc, f["key"], field_data)
       end)
 
     attrs = %{
@@ -138,6 +146,18 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     end
   end
 
+  def handle_event("toggle-validation", %{"id" => id}, socket) do
+    open = socket.assigns.validation_open
+
+    open =
+      if MapSet.member?(open, id),
+        do: MapSet.delete(open, id),
+        else: MapSet.put(open, id)
+
+    {:noreply, assign(socket, validation_open: open)}
+  end
+
+
   def handle_event("save", params, socket) do
     prefix = socket.assigns.prefix
     fields = socket.assigns.fields
@@ -148,7 +168,8 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     if Enum.empty?(errors_list) do
       schema_definition =
         Enum.reduce(fields, %{}, fn f, acc ->
-          Map.put(acc, f["key"], Map.take(f, ["label", "field_type", "required", "target_model", "position"]))
+          field_data = f |> Map.take(@persisted_field_keys) |> reject_blank_values()
+          Map.put(acc, f["key"], field_data)
         end)
 
       attrs = %{
@@ -182,8 +203,11 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     end
   end
 
+  @integer_attrs ~w(min_length max_length)
+  @number_attrs ~w(min max)
+
   defp update_field_in_socket(socket, id, attr, value) do
-    value = if attr == "required", do: value == "true", else: value
+    value = cast_field_attr(attr, value)
 
     fields =
       Enum.map(socket.assigns.fields, fn
@@ -193,6 +217,30 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
 
     {:noreply, assign(socket, fields: fields)}
   end
+
+  defp cast_field_attr("required", val), do: val == "true"
+
+  defp cast_field_attr(attr, val) when attr in @integer_attrs do
+    case Integer.parse(to_string(val)) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+
+  defp cast_field_attr(attr, val) when attr in @number_attrs do
+    str = to_string(val)
+
+    cond do
+      str == "" -> nil
+      true ->
+        case Float.parse(str) do
+          {n, _} -> n
+          :error -> nil
+        end
+    end
+  end
+
+  defp cast_field_attr(_attr, val), do: val
 
   @spec render(any()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
@@ -230,12 +278,12 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       <form phx-change="update-form" phx-submit="save" id="model-form" class="space-y-8">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-8 border-b border-gray-200">
           <.input type="text" name="name" label="Name" value={@form_data[:name]} required placeholder="e.g. BlogPost" />
-          <.input type="text" name="slug" label="Slug" value={@form_data[:slug]} required placeholder="e.g. blog_post" class="font-mono" />
+          <.input type="text" name="slug" label="Slug" value={@form_data[:slug]} required placeholder="e.g. blog_post" />
           
           <div>
             <.input type="select" name="slug_field" label="Slug generated from field" value={@form_data[:slug_field]} prompt="- Manual entry -"
               options={Enum.map(@fields, fn f -> {if(f["label"] == "", do: f["key"], else: f["label"]) <> " (" <> f["key"] <> ")", f["key"]} end) |> Enum.filter(fn {_, k} -> Enum.find(@fields, &(&1["key"] == k))["field_type"] == "text" end)} />
-            <p class="mt-1 text-xs text-gray-500 italic">Select a text field to automatically generate slug from it.</p>
+            <p class="mt-1 text-sm text-gray-500">Select a text field to automatically generate slug from it.</p>
           </div>
         </div>
 
@@ -261,7 +309,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
             <%= for field <- @fields do %>
               <div id={field["id"]} class="group">
                 <input type="hidden" name="fields_order[]" value={field["id"]} />
-                <OkovitaWeb.Admin.ContentLive.FieldConfigurator.render field={field} field_types={@field_types} available_models={@available_models} model={@model} />
+                <OkovitaWeb.Admin.ContentLive.FieldConfigurator.render field={field} field_types={@field_types} available_models={@available_models} model={@model} validation_open?={MapSet.member?(@validation_open, field["id"])} />
               </div>
             <% end %>
 
@@ -294,7 +342,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
             Copy to clipboard
           </button>
         </div>
-        <pre class="p-4 bg-gray-900 text-gray-100 rounded-lg overflow-x-auto text-xs font-mono max-h-[60vh]"><%= @json_definition %></pre>
+        <pre class="p-4 bg-gray-900 text-gray-100 rounded-lg overflow-x-auto text-sm max-h-[60vh] font-sans"><%= @json_definition %></pre>
       </div>
       <:footer>
         <.button type="button" phx-click="close-json" variant="secondary">Close</.button>
@@ -352,6 +400,32 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
           errors
       end
     end)
+    |> check_regex_patterns(fields)
     |> Enum.uniq()
+  end
+
+  defp check_regex_patterns(errors, fields) do
+    Enum.reduce(fields, errors, fn f, acc ->
+      case f["validation_regex"] do
+        nil -> acc
+        "" -> acc
+
+        pattern when is_binary(pattern) ->
+          case Regex.compile(pattern) do
+            {:ok, _} -> acc
+            {:error, _} -> ["Invalid regex pattern for field '#{f["key"]}': #{pattern}" | acc]
+          end
+
+        _ -> acc
+      end
+    end)
+  end
+
+  defp reject_blank_values(map) do
+    Map.reject(map, fn
+      {_, nil} -> true
+      {_, ""} -> true
+      _ -> false
+    end)
   end
 end

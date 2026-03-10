@@ -105,6 +105,7 @@ Hooks.Sortable = {
     mounted() {
         this.sortable = new Sortable(this.el, {
             animation: 150,
+            handle: ".cursor-move",
             ghostClass: "opacity-50",
             onEnd: (e) => {
                 // Find the first hidden input inside the sortable list

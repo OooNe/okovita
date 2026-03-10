@@ -336,6 +336,22 @@ defmodule OkovitaWeb.CoreComponents do
     """
   end
 
+  def icon(%{name: "hero-chevron-right"} = assigns) do
+    ~H"""
+    <svg class={["shrink-0", @class]} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" {@rest}>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+    </svg>
+    """
+  end
+
+  def icon(%{name: "hero-chevron-down"} = assigns) do
+    ~H"""
+    <svg class={["shrink-0", @class]} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" {@rest}>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+    """
+  end
+
   def icon(%{name: "hero-" <> _} = assigns) do
     ~H"""
     <span class={[@name, @class]} {@rest} />

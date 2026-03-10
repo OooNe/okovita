@@ -16,7 +16,7 @@ defmodule OkovitaWeb.Layouts do
       <link phx-track-static rel="stylesheet" href="/assets/app.css" />
       <script defer phx-track-static type="text/javascript" src="/assets/app.js"></script>
     </head>
-    <body>
+    <body class="bg-white font-sans antialiased text-gray-900">
       <%= @inner_content %>
     </body>
     </html>
