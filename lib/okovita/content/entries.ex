@@ -212,7 +212,8 @@ defmodule Okovita.Content.Entries do
             "publish",
             actor_id,
             fn %{entry: updated} ->
-              {entry.id, %{published_at: entry.published_at}, %{published_at: updated.published_at}}
+              {entry.id, %{published_at: entry.published_at},
+               %{published_at: updated.published_at}}
             end,
             prefix: prefix
           )
@@ -242,7 +243,8 @@ defmodule Okovita.Content.Entries do
             "unpublish",
             actor_id,
             fn %{entry: updated} ->
-              {entry.id, %{published_at: entry.published_at}, %{published_at: updated.published_at}}
+              {entry.id, %{published_at: entry.published_at},
+               %{published_at: updated.published_at}}
             end,
             prefix: prefix
           )

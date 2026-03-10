@@ -14,20 +14,29 @@ defmodule Okovita.Content.SlugGenerator do
   Buduje i ewentualnie agreguje (jeśli potrzeba unikalności) ostateczny
   adres w oparciu o przypisane cechy i zasady konkretnego modelu wpisu.
   """
-  @spec build(map(), map(), map(), String.t()) :: String.t()
   def build(attrs, data, model, prefix) do
     if model.slug_field do
-      target_value =
-        Map.get(data, model.slug_field) || Map.get(data, String.to_atom(model.slug_field)) || ""
+      target_value = get_any_key(data, model.slug_field) || ""
 
       {:ok, base_slug} = Slugify.apply(to_string(target_value), nil)
       generate_unique(model.id, base_slug, prefix)
     else
-      Map.get(attrs, :slug) || Map.get(attrs, "slug")
+      get_any_key(attrs, "slug") || model.slug
     end
   end
 
   # --- Prywatne
+
+  defp get_any_key(map, string_key) do
+    atom_key =
+      try do
+        String.to_existing_atom(string_key)
+      rescue
+        ArgumentError -> nil
+      end
+
+    map[string_key] || (atom_key && map[atom_key])
+  end
 
   defp generate_unique(model_id, base_slug, prefix) do
     effective_base = get_effective_base(base_slug)

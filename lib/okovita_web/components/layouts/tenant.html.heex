@@ -59,13 +59,30 @@
           </a>
           
           <!-- Tree branch (only if there are models) -->
-          <%= if length(@layout_models) > 0 do %>
+          <!-- Tree branch for Collections -->
+          <%= if length(Enum.filter(@layout_models, &(!&1.is_component))) > 0 do %>
             <div class="ml-[22px] mt-1 pl-4 border-l border-gray-300 space-y-3 relative py-1">
-              <%= for m <- @layout_models do %>
+              <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-2">Collections</div>
+              <%= for m <- Enum.filter(@layout_models, &(!&1.is_component)) do %>
                 <!-- The tree line curve effect -->
                 <div class="relative flex items-center group">
                   <div class="absolute -left-[17px] top-1/2 w-4 h-[1px] bg-gray-300"></div>
                   <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{m.id}/edit"} class={"text-[14px] transition-colors pl-2 flex items-center truncate #{if @active_nav == "schema_#{m.id}", do: "text-indigo-700 font-semibold", else: "text-gray-600 hover:text-gray-900"}"}>
+                    <span class="truncate"><%= m.name %></span>
+                  </a>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+
+          <!-- Tree branch for Components -->
+          <%= if length(Enum.filter(@layout_models, &(&1.is_component))) > 0 do %>
+            <div class="ml-[22px] mt-4 pl-4 border-l border-gray-300 space-y-3 relative py-1">
+              <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-2">Components</div>
+              <%= for m <- Enum.filter(@layout_models, &(&1.is_component)) do %>
+                <div class="relative flex items-center group">
+                  <div class="absolute -left-[17px] top-1/2 w-4 h-[1px] bg-gray-300"></div>
+                  <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{m.id}/edit"} class={"text-[14px] transition-colors pl-2 flex items-center truncate #{if @active_nav == "schema_#{m.id}", do: "text-purple-700 font-semibold", else: "text-gray-600 hover:text-gray-900"}"}>
                     <span class="truncate"><%= m.name %></span>
                   </a>
                 </div>
@@ -89,12 +106,29 @@
           </div>
           
           <!-- Tree branch -->
-          <%= if length(@layout_models) > 0 do %>
+          <!-- Tree branch for Collections -->
+          <%= if length(Enum.filter(@layout_models, &(!&1.is_component))) > 0 do %>
             <div class="ml-[22px] mt-1 pl-4 border-l border-gray-300 space-y-3 relative py-1">
-              <%= for m <- @layout_models do %>
+              <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-2">Collections</div>
+              <%= for m <- Enum.filter(@layout_models, &(!&1.is_component)) do %>
                 <div class="relative flex items-center group">
                   <div class="absolute -left-[17px] top-1/2 w-4 h-[1px] bg-gray-300"></div>
                   <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{m.slug}/entries"} class={"text-[14px] transition-colors pl-2 flex items-center justify-between w-full pr-2 #{if @active_nav == "entity_#{m.slug}", do: "text-indigo-700 font-semibold", else: "text-gray-600 hover:text-gray-900"}"}>
+                    <span class="truncate"><%= m.name %></span>
+                  </a>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+
+          <!-- Tree branch for Components -->
+          <%= if length(Enum.filter(@layout_models, &(&1.is_component))) > 0 do %>
+            <div class="ml-[22px] mt-4 pl-4 border-l border-gray-300 space-y-3 relative py-1">
+              <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 ml-2">Components</div>
+              <%= for m <- Enum.filter(@layout_models, &(&1.is_component)) do %>
+                <div class="relative flex items-center group">
+                  <div class="absolute -left-[17px] top-1/2 w-4 h-[1px] bg-gray-300"></div>
+                  <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{m.slug}/entries"} class={"text-[14px] transition-colors pl-2 flex items-center justify-between w-full pr-2 #{if @active_nav == "entity_#{m.slug}", do: "text-purple-700 font-semibold", else: "text-gray-600 hover:text-gray-900"}"}>
                     <span class="truncate"><%= m.name %></span>
                   </a>
                 </div>

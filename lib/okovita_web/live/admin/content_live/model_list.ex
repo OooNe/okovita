@@ -7,10 +7,13 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelList do
   def mount(_params, _session, socket) do
     prefix = socket.assigns.tenant_prefix
     models = Content.list_models(prefix)
+    collections = Enum.filter(models, &(!&1.is_component))
+    components = Enum.filter(models, & &1.is_component)
 
     {:ok,
      assign(socket,
-       models: models,
+       collections: collections,
+       components: components,
        delete_target: nil,
        delete_confirmation: ""
      )}
@@ -29,39 +32,26 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelList do
           </div>
         </div>
 
-        <div class="overflow-hidden bg-white ring-1 ring-gray-200 shadow-sm sm:rounded-lg">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
-                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Slug</th>
-                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Fields</th>
-                <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right text-sm font-semibold text-gray-900">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 bg-white">
-              <%= for model <- @models do %>
-                <tr class="hover:bg-gray-50 transition-colors group">
-                  <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6"><%= model.name %></td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 font-mono"><%= model.slug %></td>
-                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= map_size(model.schema_definition) %> fields</td>
-                  <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-3">
-                    <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{model.slug}/entries"} class="text-indigo-600 hover:text-indigo-900">Entries</a>
-                    <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{model.id}/edit"} class="text-gray-500 hover:text-gray-900">Edit</a>
-                    <a href={"/admin/tenants/#{@current_tenant.slug}/timeline/model/#{model.id}"} class="text-gray-500 hover:text-gray-900">History</a>
-                    <button
-                      phx-click="confirm-delete"
-                      phx-value-id={model.id}
-                      class="text-red-500 hover:text-red-700"
-                    >
-                      <.icon name="hero-trash" class="w-4 h-4 inline" />
-                    </button>
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
+        <%= if length(@collections) > 0 do %>
+          <div class="mb-4">
+            <h2 class="text-lg font-semibold text-gray-900 mb-3">Collections</h2>
+            <.model_table models={@collections} current_tenant={@current_tenant} />
+          </div>
+        <% end %>
+
+        <%= if length(@components) > 0 do %>
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 mb-3">Components</h2>
+            <.model_table models={@components} current_tenant={@current_tenant} />
+          </div>
+        <% end %>
+
+        <%= if Enum.empty?(@collections) and Enum.empty?(@components) do %>
+          <div class="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
+            <h3 class="mt-2 text-sm font-semibold text-gray-900">No content models yet</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by creating a new model or component.</p>
+          </div>
+        <% end %>
       </div>
 
       <%!-- Delete confirmation modal --%>
@@ -145,11 +135,21 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelList do
     case Content.delete_model(target.id, prefix) do
       {:ok, _model} ->
         models = Content.list_models(prefix)
+        collections = Enum.filter(models, &(!&1.is_component))
+        components = Enum.filter(models, & &1.is_component)
 
         {:noreply,
          socket
-         |> assign(models: models, delete_target: nil, delete_confirmation: "")
-         |> put_flash(:info, "Model \"#{target.name}\" i wszystkie powiązane wpisy zostały usunięte.")}
+         |> assign(
+           collections: collections,
+           components: components,
+           delete_target: nil,
+           delete_confirmation: ""
+         )
+         |> put_flash(
+           :info,
+           "Model \"#{target.name}\" i wszystkie powiązane wpisy zostały usunięte."
+         )}
 
       {:error, _reason} ->
         {:noreply,
@@ -157,5 +157,47 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelList do
          |> assign(delete_target: nil, delete_confirmation: "")
          |> put_flash(:error, "Nie udało się usunąć modelu.")}
     end
+  end
+
+  defp model_table(assigns) do
+    ~H"""
+    <div class="overflow-hidden bg-white ring-1 ring-gray-200 shadow-sm sm:rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
+            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Slug</th>
+            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Fields</th>
+            <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right text-sm font-semibold text-gray-900">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 bg-white">
+          <%= for model <- @models do %>
+            <tr class="hover:bg-gray-50 transition-colors group">
+              <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6"><%= model.name %></td>
+              <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 font-mono"><%= model.slug %></td>
+              <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= map_size(model.schema_definition) %> fields</td>
+              <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-3">
+                <%= if model.is_component do %>
+                  <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{model.slug}/entries"} class="text-indigo-600 hover:text-indigo-900">Edit Data</a>
+                <% else %>
+                  <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{model.slug}/entries"} class="text-indigo-600 hover:text-indigo-900">Entries</a>
+                <% end %>
+                <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{model.id}/edit"} class="text-gray-500 hover:text-gray-900">Edit Schema</a>
+                <a href={"/admin/tenants/#{@current_tenant.slug}/timeline/model/#{model.id}"} class="text-gray-500 hover:text-gray-900">History</a>
+                <button
+                  phx-click="confirm-delete"
+                  phx-value-id={model.id}
+                  class="text-red-500 hover:text-red-700"
+                >
+                  <.icon name="hero-trash" class="w-4 h-4 inline" />
+                </button>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    """
   end
 end

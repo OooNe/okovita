@@ -22,7 +22,13 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       {:ok,
        assign(socket,
          model: model,
-         form_data: %{slug: model.slug, name: model.name, slug_field: model.slug_field, publishable: model.publishable},
+         form_data: %{
+           slug: model.slug,
+           name: model.name,
+           slug_field: model.slug_field,
+           publishable: model.publishable,
+           is_component: model.is_component
+         },
          fields: fields,
          field_types: Registry.registered_types(),
          available_models: available_models,
@@ -45,7 +51,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     {:ok,
      assign(socket,
        model: nil,
-       form_data: %{slug: "", name: "", slug_field: nil, publishable: false},
+       form_data: %{slug: "", name: "", slug_field: nil, publishable: false, is_component: false},
        fields: [],
        field_types: Registry.registered_types(),
        available_models: available_models,
@@ -97,7 +103,8 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       slug: params["slug"],
       name: params["name"],
       slug_field: if(params["slug_field"] in ["", nil], do: nil, else: params["slug_field"]),
-      publishable: params["publishable"] == "true"
+      publishable: params["publishable"] == "true",
+      is_component: params["is_component"] == "true"
     }
 
     {:noreply, assign(socket, form_data: form_data)}
@@ -118,6 +125,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
       name: form_data[:name],
       slug_field: form_data[:slug_field],
       publishable: form_data[:publishable],
+      is_component: form_data[:is_component],
       schema_definition: schema_definition
     }
 
@@ -157,7 +165,6 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     {:noreply, assign(socket, validation_open: open)}
   end
 
-
   def handle_event("save", params, socket) do
     prefix = socket.assigns.prefix
     fields = socket.assigns.fields
@@ -177,6 +184,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
         name: params["name"],
         slug_field: if(params["slug_field"] in ["", nil], do: nil, else: params["slug_field"]),
         publishable: params["publishable"] == "true",
+        is_component: params["is_component"] == "true",
         schema_definition: schema_definition
       }
 
@@ -231,7 +239,9 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     str = to_string(val)
 
     cond do
-      str == "" -> nil
+      str == "" ->
+        nil
+
       true ->
         case Float.parse(str) do
           {n, _} -> n
@@ -249,9 +259,30 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm ring-1 ring-gray-900/5 p-8 my-8">
       <div class="border-b border-gray-200 pb-5 mb-8 flex items-center justify-between">
         <h1 class="text-2xl font-bold leading-tight text-gray-900">
-          <%= if @model, do: "Edit Model", else: "New Model" %>
+          <%= if @model do %>
+            Edit <%= if @form_data[:is_component], do: "Component", else: "Model" %>
+          <% else %>
+            New <%= if @form_data[:is_component], do: "Component", else: "Model" %>
+          <% end %>
         </h1>
         <div class="flex items-center gap-6">
+          <div class="flex items-center gap-1.5 border-r border-gray-200 pr-5">
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="hidden" name="is_component" value="false" form="model-form" />
+              <input type="checkbox" name="is_component" value="true" checked={@form_data[:is_component]} class="sr-only peer" form="model-form" disabled={@model != nil} />
+              <div class={"w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600 #{if @model != nil, do: "opacity-60 cursor-not-allowed", else: ""}"}></div>
+              <span class={"ml-2 text-sm font-medium #{if @model != nil, do: "text-gray-400 cursor-not-allowed", else: "text-gray-700"}"}>Singleton Component</span>
+            </label>
+            <div class="relative group">
+              <div class="flex items-center justify-center w-4 h-4 rounded-full bg-gray-400 cursor-help select-none">
+                <span class="text-white text-[10px] font-bold leading-none">i</span>
+              </div>
+              <div class="absolute right-0 top-full mt-2 w-64 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                Components hold exactly one entry. You cannot change this after creation.
+                <div class="absolute -top-1 right-2 w-2 h-2 rotate-45 bg-gray-900"></div>
+              </div>
+            </div>
+          </div>
           <div class="flex items-center gap-1.5">
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="hidden" name="publishable" value="false" form="model-form" />
@@ -407,8 +438,11 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
   defp check_regex_patterns(errors, fields) do
     Enum.reduce(fields, errors, fn f, acc ->
       case f["validation_regex"] do
-        nil -> acc
-        "" -> acc
+        nil ->
+          acc
+
+        "" ->
+          acc
 
         pattern when is_binary(pattern) ->
           case Regex.compile(pattern) do
@@ -416,7 +450,8 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
             {:error, _} -> ["Invalid regex pattern for field '#{f["key"]}': #{pattern}" | acc]
           end
 
-        _ -> acc
+        _ ->
+          acc
       end
     end)
   end

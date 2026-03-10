@@ -98,11 +98,19 @@ defmodule Okovita.FieldTypes.Behaviour do
               current_data :: map()
             ) :: map()
 
+  @doc """
+  Returns the default (blank) value for a field of this type when initializing
+  an empty entry. For example, boolean fields return `false` and lists return `[]`.
+  Defaults to `nil` in the Registry if not implemented.
+  """
+  @callback default_value() :: any()
+
   @optional_callbacks [
     editor_component: 0,
     configurator_component: 0,
     upload_config: 0,
     form_assigns: 3,
-    merge_validate_params: 3
+    merge_validate_params: 3,
+    default_value: 0
   ]
 end

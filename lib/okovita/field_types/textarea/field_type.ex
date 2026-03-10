@@ -38,8 +38,11 @@ defmodule Okovita.FieldTypes.Textarea do
 
   defp maybe_validate_regex(changeset, field_name, options) do
     case Map.get(options, "validation_regex") do
-      nil -> changeset
-      "" -> changeset
+      nil ->
+        changeset
+
+      "" ->
+        changeset
 
       pattern when is_binary(pattern) ->
         case Regex.compile(pattern) do

@@ -11,7 +11,7 @@ defmodule Okovita.Content.EntryFormatter do
   or keeping it strictly to its data if no model is provided.
   """
   def format(%Entry{} = entry, model, with_metadata) do
-    data = Map.put(entry.data || %{}, "id", entry.id)
+    data = prepare_base_data(entry, model)
 
     formatted_data =
       if model && model.schema_definition do
@@ -34,6 +34,14 @@ defmodule Okovita.Content.EntryFormatter do
       }
     else
       formatted_data
+    end
+  end
+
+  defp prepare_base_data(entry, model) do
+    if model && Map.get(model, :is_component) do
+      entry.data || %{}
+    else
+      Map.put(entry.data || %{}, "id", entry.id)
     end
   end
 

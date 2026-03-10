@@ -15,4 +15,7 @@ defmodule Okovita.FieldTypes.Boolean do
   def cast(0), do: {:ok, false}
   def cast(nil), do: {:ok, nil}
   def cast(_), do: :error
+
+  @impl true
+  def default_value, do: false
 end

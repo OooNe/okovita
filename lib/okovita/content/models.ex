@@ -34,11 +34,15 @@ defmodule Okovita.Content.Models do
         end,
         prefix: prefix
       )
+      |> Multi.run(:auto_entry, fn repo, %{model: model} ->
+        maybe_auto_create_component_entry(repo, model, prefix, actor_id)
+      end)
       |> Repo.transaction()
 
     case result do
       {:ok, %{model: model}} -> {:ok, model}
       {:error, :model, changeset, _} -> {:error, changeset}
+      {:error, :auto_entry, reason, _} -> {:error, reason}
     end
   end
 
@@ -191,5 +195,51 @@ defmodule Okovita.Content.Models do
       blank_value = if type == "relation_many", do: [], else: ""
       Map.put(acc, key, blank_value)
     end)
+  end
+
+  defp maybe_auto_create_component_entry(_repo, %{is_component: false}, _prefix, _actor_id) do
+    {:ok, nil}
+  end
+
+  defp maybe_auto_create_component_entry(repo, model, prefix, actor_id) do
+    empty_data = build_empty_component_data(model.schema_definition)
+    slug = Okovita.Content.SlugGenerator.build(%{}, empty_data, model, prefix)
+    string_data = Okovita.Content.Entries.Utils.to_string_keyed_map(empty_data)
+
+    entry_attrs = %{
+      slug: slug,
+      model_id: model.id,
+      data: string_data,
+      published_at: if(model.publishable, do: nil, else: DateTime.utc_now())
+    }
+
+    with {:ok, entry} <- repo.insert(Entry.changeset(%Entry{}, entry_attrs), prefix: prefix),
+         {:ok, _} <- log_component_entry_creation(repo, entry, prefix, actor_id) do
+      {:ok, entry}
+    end
+  end
+
+  defp build_empty_component_data(schema_definition) do
+    Map.new(schema_definition, fn {key, def} ->
+      {key, Okovita.FieldTypes.Registry.default_value(def["field_type"])}
+    end)
+  end
+
+  defp log_component_entry_creation(repo, entry, prefix, actor_id) do
+    Auditor.insert_audit(
+      Multi.new(),
+      "entry",
+      "create",
+      actor_id,
+      fn _ ->
+        {
+          entry.id,
+          nil,
+          %{slug: entry.slug, data: entry.data}
+        }
+      end,
+      prefix: prefix
+    )
+    |> repo.transaction()
   end
 end

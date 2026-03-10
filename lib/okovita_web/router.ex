@@ -117,6 +117,10 @@ defmodule OkovitaWeb.Router do
     put "/models/:id", ModelController, :update
     delete "/models/:id", ModelController, :delete
 
+    # Components
+    get "/components/:slug", ComponentController, :show
+    put "/components/:slug", ComponentController, :update
+
     # Content entries
     get "/models/:model_slug/entries", EntryController, :index
     get "/models/:model_slug/entries/:id", EntryController, :show

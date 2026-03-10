@@ -80,17 +80,25 @@ defmodule Okovita.OpenAPI.Generator do
   end
 
   defp build_model_schema(model) do
-    properties =
+    base_properties =
       Enum.reduce(model.schema_definition, %{}, fn {key, def}, acc ->
         Map.put(acc, key, map_field_type(def))
       end)
-      |> Map.put("id", %{"type" => "string", "format" => "uuid"})
 
-    required_fields =
+    base_required_fields =
       model.schema_definition
       |> Enum.filter(fn {_key, def} -> def["required"] == true end)
       |> Enum.map(fn {key, _def} -> key end)
-      |> List.insert_at(0, "id")
+
+    {properties, required_fields} =
+      if model.is_component do
+        {base_properties, base_required_fields}
+      else
+        {
+          Map.put(base_properties, "id", %{"type" => "string", "format" => "uuid"}),
+          List.insert_at(base_required_fields, 0, "id")
+        }
+      end
 
     %{
       "type" => "object",
@@ -135,7 +143,9 @@ defmodule Okovita.OpenAPI.Generator do
   defp map_field_type(_), do: %{"type" => "string"}
 
   defp build_paths(models) do
-    Enum.reduce(models, %{}, fn model, paths ->
+    base_paths = %{}
+
+    Enum.reduce(models, base_paths, fn model, paths ->
       relations_paths =
         Enum.reduce(models, %{}, fn child_model, sub_paths ->
           targets_parent? =
@@ -156,11 +166,112 @@ defmodule Okovita.OpenAPI.Generator do
           end
         end)
 
+      # If it's a component, generate /components/{slug} paths
+      # If it's a collection, generate standard entry paths
+      paths =
+        if model.is_component do
+          component_path = "/components/#{model.slug}"
+          Map.put(paths, component_path, component_operations(model))
+        else
+          paths
+          |> Map.put("/models/#{model.slug}/entries", collection_operations(model))
+          |> Map.put("/models/#{model.slug}/entries/{id}", item_operations(model))
+        end
+
       paths
-      |> Map.put("/models/#{model.slug}/entries", collection_operations(model))
-      |> Map.put("/models/#{model.slug}/entries/{id}", item_operations(model))
       |> Map.merge(relations_paths)
     end)
+  end
+
+  defp component_operations(model) do
+    parameters = [
+      %{
+        "name" => "withMetadata",
+        "in" => "query",
+        "description" => "Include system metadata wrapper in response",
+        "required" => false,
+        "schema" => %{"type" => "boolean", "default" => false}
+      }
+    ]
+
+    get_parameters =
+      parameters ++
+        [
+          %{
+            "name" => "populate",
+            "in" => "query",
+            "description" => "Comma-separated list of relation keys to populate, or * for all",
+            "required" => false,
+            "schema" => %{"type" => "string"}
+          }
+        ]
+
+    %{
+      "get" => %{
+        "tags" => [model.name],
+        "summary" => "Get item for component #{model.name}",
+        "parameters" => get_parameters,
+        "responses" => %{
+          "200" => %{
+            "description" => "Component data",
+            "content" => %{
+              "application/json" => %{
+                "schema" => %{
+                  "oneOf" => [
+                    %{"$ref" => "#/components/schemas/#{model.slug}_Data"},
+                    %{"$ref" => "#/components/schemas/#{model.slug}_Entry"}
+                  ]
+                }
+              }
+            }
+          },
+          "404" => %{"description" => "Not found"}
+        }
+      },
+      "put" => %{
+        "tags" => [model.name],
+        "summary" => "Update item for component #{model.name}",
+        "parameters" => parameters,
+        "requestBody" => %{
+          "required" => true,
+          "content" => %{
+            "application/json" => %{
+              "schema" => %{
+                "type" => "object",
+                "properties" => %{
+                  "slug" => %{"type" => "string"},
+                  "data" => %{"$ref" => "#/components/schemas/#{model.slug}_Data"}
+                }
+              }
+            }
+          }
+        },
+        "responses" => %{
+          "200" => %{
+            "description" => "Updated component item",
+            "content" => %{
+              "application/json" => %{
+                "schema" => %{
+                  "oneOf" => [
+                    %{"$ref" => "#/components/schemas/#{model.slug}_Data"},
+                    %{"$ref" => "#/components/schemas/#{model.slug}_Entry"}
+                  ]
+                }
+              }
+            }
+          },
+          "422" => %{
+            "description" => "Validation error",
+            "content" => %{
+              "application/json" => %{
+                "schema" => %{"$ref" => "#/components/schemas/Error"}
+              }
+            }
+          },
+          "404" => %{"description" => "Not found"}
+        }
+      }
+    }
   end
 
   defp collection_operations(model) do

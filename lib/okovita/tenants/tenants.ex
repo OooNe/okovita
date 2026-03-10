@@ -211,10 +211,15 @@ defmodule Okovita.Tenants do
       slug varchar(255) NOT NULL,
       name varchar(255) NOT NULL,
       slug_field varchar(255),
+      is_component boolean NOT NULL DEFAULT false,
       schema_definition jsonb NOT NULL DEFAULT '{}',
       inserted_at timestamp(0) WITHOUT TIME ZONE NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
       updated_at timestamp(0) WITHOUT TIME ZONE NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
     )
+    """)
+
+    Repo.query!("""
+    ALTER TABLE "#{prefix}".content_models ADD COLUMN IF NOT EXISTS is_component boolean NOT NULL DEFAULT false;
     """)
 
     Repo.query!("""

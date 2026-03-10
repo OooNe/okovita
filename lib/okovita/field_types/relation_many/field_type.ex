@@ -99,4 +99,7 @@ defmodule Okovita.FieldTypes.RelationMany do
       current_data
     end
   end
+
+  @impl true
+  def default_value, do: []
 end

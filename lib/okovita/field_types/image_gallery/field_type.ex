@@ -126,6 +126,9 @@ defmodule Okovita.FieldTypes.ImageGallery do
     end
   end
 
+  @impl true
+  def default_value, do: []
+
   # ── Normalization helpers ─────────────────────────────────────────────────────
 
   @doc """

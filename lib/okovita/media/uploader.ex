@@ -77,8 +77,7 @@ defmodule Okovita.Media.Uploader do
 
         url = "#{scheme}#{public_host}#{port}/#{bucket}/#{file_name}"
 
-        {:ok,
-         %{url: url, file_name: file_name, size: byte_size(binary), mime_type: content_type}}
+        {:ok, %{url: url, file_name: file_name, size: byte_size(binary), mime_type: content_type}}
 
       {:error, reason} ->
         {:error, reason}

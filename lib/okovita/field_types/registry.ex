@@ -311,4 +311,25 @@ defmodule Okovita.FieldTypes.Registry do
         end
     end
   end
+
+  @doc """
+  Returns the default/blank value for the given field type when seeding a new
+  empty entry. Delegates to `default_value/0` callback, or returns `nil` by default.
+  """
+  @spec default_value(String.t()) :: any()
+  def default_value(type_name) when is_binary(type_name) do
+    case Agent.get(__MODULE__, &Map.get(&1, type_name)) do
+      nil ->
+        nil
+
+      module ->
+        Code.ensure_loaded?(module)
+
+        if function_exported?(module, :default_value, 0) do
+          module.default_value()
+        else
+          nil
+        end
+    end
+  end
 end

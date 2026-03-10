@@ -143,6 +143,7 @@ defmodule OkovitaWeb.Admin.ContentLive.FieldConfigurator do
 
   @validation_keys ~w(required validation_regex min_length max_length min max)
   defp has_rules?(_field, nil), do: false
+
   defp has_rules?(field, model) do
     key = field["key"]
     persisted = get_in(model.schema_definition, [key]) || %{}

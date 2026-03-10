@@ -184,7 +184,11 @@ defmodule OkovitaWeb.Admin.MediaLive.Index do
   end
 
   @impl true
-  def handle_event("crop-result", %{"data" => base64, "mode" => mode, "media_id" => media_id}, socket) do
+  def handle_event(
+        "crop-result",
+        %{"data" => base64, "mode" => mode, "media_id" => media_id},
+        socket
+      ) do
     prefix = socket.assigns.tenant_prefix
     media = Content.get_media(media_id, prefix)
 

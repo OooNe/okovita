@@ -23,13 +23,14 @@ defmodule Okovita.Content.Model do
     field :name, :string
     field :slug_field, :string
     field :publishable, :boolean, default: false
+    field :is_component, :boolean, default: false
     field :schema_definition, :map, default: %{}
 
     timestamps()
   end
 
   @required_fields ~w(slug name schema_definition)a
-  @optional_fields ~w(slug_field publishable)a
+  @optional_fields ~w(slug_field publishable is_component)a
 
   def changeset(model, attrs) do
     model
@@ -91,7 +92,11 @@ defmodule Okovita.Content.Model do
               add_error(cs, :schema_definition, "field '#{field_name}' is missing 'required'")
 
             Map.has_key?(field_def, "position") and not is_integer(field_def["position"]) ->
-              add_error(cs, :schema_definition, "field '#{field_name}' position must be an integer")
+              add_error(
+                cs,
+                :schema_definition,
+                "field '#{field_name}' position must be an integer"
+              )
 
             field_def["field_type"] not in registered ->
               add_error(

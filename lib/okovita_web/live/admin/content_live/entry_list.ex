@@ -6,13 +6,32 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryList do
 
   def mount(%{"model_slug" => slug}, _session, socket) do
     prefix = socket.assigns.tenant_prefix
-    model = Content.get_model_by_slug(slug, prefix)
 
-    if model do
-      entries = Content.list_entries(model.id, prefix)
-      {:ok, assign(socket, model: model, entries: entries, prefix: prefix)}
-    else
-      {:ok, push_navigate(socket, to: "/admin/models")}
+    case Content.get_model_by_slug(slug, prefix) do
+      nil ->
+        tenant_slug = socket.assigns.current_tenant.slug
+        {:ok, push_navigate(socket, to: "/admin/tenants/#{tenant_slug}/models")}
+
+      %{is_component: true} = model ->
+        # Component models have exactly one auto-created entry. Redirect directly to its edit form.
+        case Content.list_entries(model.id, prefix) do
+          [entry | _] ->
+            {:ok,
+             push_navigate(socket,
+               to:
+                 "/admin/tenants/#{socket.assigns.current_tenant.slug}/models/#{model.slug}/entries/#{entry.id}/edit"
+             )}
+
+          [] ->
+            {:ok,
+             push_navigate(socket,
+               to: "/admin/tenants/#{socket.assigns.current_tenant.slug}/models"
+             )}
+        end
+
+      model ->
+        entries = Content.list_entries(model.id, prefix)
+        {:ok, assign(socket, model: model, entries: entries, prefix: prefix)}
     end
   end
 

@@ -173,7 +173,8 @@ defmodule Okovita.Content.DynamicChangesetTest do
       }
 
       # Valid: passes both https and custom regex
-      assert {:ok, _} = DynamicChangeset.build(schema, %{"site" => "https://www.example.com/page"})
+      assert {:ok, _} =
+               DynamicChangeset.build(schema, %{"site" => "https://www.example.com/page"})
 
       # Invalid: passes https but fails custom regex
       assert {:error, cs} = DynamicChangeset.build(schema, %{"site" => "https://other.com"})
@@ -300,4 +301,3 @@ defmodule Okovita.Content.DynamicChangesetTest do
     end)
   end
 end
-
