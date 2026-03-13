@@ -15,6 +15,7 @@ defmodule Okovita.Timeline.Record do
     field :entity_type, :string
     field :action, :string
     field :actor_id, :binary_id
+    field :actor_email, :string, virtual: true
     field :before, :map
     field :after, :map
 

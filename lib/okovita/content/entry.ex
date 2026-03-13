@@ -18,6 +18,7 @@ defmodule Okovita.Content.Entry do
     field :slug, :string
     field :data, :map, default: %{}
     field :published_at, :utc_datetime
+    field :last_editor, :string, virtual: true
 
     belongs_to :model, Model
 

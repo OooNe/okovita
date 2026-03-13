@@ -51,7 +51,12 @@ defmodule OkovitaWeb.Admin.TimelineLive do
                     </div>
                     <div class="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                       <div>
-                        <p class="text-sm font-medium text-gray-900 uppercase tracking-wide"><%= record.action %></p>
+                        <p class="text-sm font-medium text-gray-900 uppercase tracking-wide">
+                          <%= record.action %>
+                          <%= if record.actor_email do %>
+                            <span class="text-xs font-normal text-gray-500 lowercase ml-2">(<%= record.actor_email %>)</span>
+                          <% end %>
+                        </p>
 
                         <%= if record.before do %>
                           <details class="mt-3 group cursor-pointer">

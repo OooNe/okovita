@@ -6,7 +6,7 @@ defmodule Okovita.Content.Models do
   alias Ecto.Multi
   alias Okovita.Repo
   alias Okovita.Content.{Entry, Model}
-  alias Okovita.Timeline.Auditor
+  alias Okovita.Timeline
 
   import Ecto.Query
 
@@ -17,7 +17,7 @@ defmodule Okovita.Content.Models do
     result =
       Multi.new()
       |> Multi.insert(:model, Model.changeset(%Model{}, attrs), prefix: prefix)
-      |> Auditor.insert_audit(
+      |> Timeline.insert_audit(
         "model",
         "create",
         actor_id,
@@ -64,7 +64,7 @@ defmodule Okovita.Content.Models do
         result =
           Multi.new()
           |> Multi.update(:model, Model.changeset(model, attrs), prefix: prefix)
-          |> Auditor.insert_audit(
+          |> Timeline.insert_audit(
             "model",
             "update",
             actor_id,
@@ -139,7 +139,7 @@ defmodule Okovita.Content.Models do
             prefix: prefix
           )
           |> Multi.delete(:model, model, prefix: prefix)
-          |> Auditor.insert_audit(
+          |> Timeline.insert_audit(
             "model",
             "delete",
             actor_id,
@@ -226,7 +226,7 @@ defmodule Okovita.Content.Models do
   end
 
   defp log_component_entry_creation(repo, entry, prefix, actor_id) do
-    Auditor.insert_audit(
+    Timeline.insert_audit(
       Multi.new(),
       "entry",
       "create",

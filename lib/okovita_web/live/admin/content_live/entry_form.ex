@@ -261,12 +261,12 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm do
         </h1>
 
         <button :if={@entry && @model.publishable && @entry.published_at} type="button" phx-click="toggle-publish"
-          class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold shadow-sm transition-colors bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20 hover:bg-yellow-100">
+          class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold shadow-sm transition-colors bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20 hover:bg-yellow-100">
           <.icon name="hero-eye-slash" class="w-4 h-4" />
           Unpublish
         </button>
         <button :if={@entry && @model.publishable && !@entry.published_at} type="button" phx-click="toggle-publish"
-          class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold shadow-sm transition-colors bg-green-600 text-white hover:bg-green-500">
+          class="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold shadow-sm transition-colors bg-green-600 text-white hover:bg-green-500">
           <.icon name="hero-eye" class="w-4 h-4" />
           Publish
         </button>

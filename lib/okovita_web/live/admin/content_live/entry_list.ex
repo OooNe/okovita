@@ -72,7 +72,8 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryList do
               <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Slug</th>
               <th :if={@model.publishable} scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Published</th>
               <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Created</th>
-              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Last Edit</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Last Edit Date</th>
+              <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Last Edit By</th>
               <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right text-sm font-semibold text-gray-900">Actions</th>
             </tr>
           </thead>
@@ -93,9 +94,20 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryList do
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= Calendar.strftime(entry.inserted_at, "%Y-%m-%d %H:%M") %></td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= Calendar.strftime(entry.updated_at, "%Y-%m-%d %H:%M") %></td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                  <%= if entry.last_editor do %>
+                    <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10 lowercase">
+                      <%= entry.last_editor %>
+                    </span>
+                  <% else %>
+                    <span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-400 ring-1 ring-inset ring-gray-500/10 italic">
+                      System
+                    </span>
+                  <% end %>
+                </td>
                 <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-3">
                   <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries/#{entry.id}/edit"} class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                  <a href={"/admin/tenants/#{@current_tenant.slug}/timeline/entry/#{entry.id}"} class="text-gray-500 hover:text-gray-900">History</a>
+                  <a href={"/admin/tenants/#{@current_tenant.slug}/models/#{@model.slug}/entries/#{entry.id}/history"} class="text-gray-500 hover:text-gray-900">History</a>
                   <%= if @model.publishable do %>
                     <%= if entry.published_at do %>
                       <button phx-click={"unpublish-#{entry.id}"} class="text-yellow-600 hover:text-yellow-900 font-medium">Unpublish</button>
