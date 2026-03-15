@@ -263,6 +263,13 @@ Hooks.ListEditor = {
         this.itemsContainer = this.el.querySelector("[data-items]")
         this.template = this.el.querySelector("[data-item-template]")
 
+        this.sortable = new Sortable(this.itemsContainer, {
+            animation: 150,
+            handle: "[data-drag-handle]",
+            ghostClass: "opacity-50",
+            onEnd: () => this.dispatchChange()
+        })
+
         this.el.addEventListener("click", (e) => {
             if (e.target.closest("[data-add]")) {
                 this.addItem()
@@ -273,6 +280,10 @@ Hooks.ListEditor = {
                 this.dispatchChange()
             }
         })
+    },
+
+    destroyed() {
+        this.sortable.destroy()
     },
 
     addItem() {

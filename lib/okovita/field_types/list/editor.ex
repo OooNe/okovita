@@ -18,6 +18,11 @@ defmodule Okovita.FieldTypes.List.Editor do
       <div data-items class="space-y-2">
         <%= for item <- @value do %>
           <div data-item class="flex items-center gap-2">
+            <span data-drag-handle class="flex-shrink-0 cursor-move text-gray-300 hover:text-indigo-400 transition-colors">
+              <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 14a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" clip-rule="evenodd" />
+              </svg>
+            </span>
             <%= if @subtype == "textarea" do %>
               <textarea
                 name={"#{@name}[]"}
@@ -55,6 +60,11 @@ defmodule Okovita.FieldTypes.List.Editor do
 
       <template data-item-template>
         <div data-item class="flex items-center gap-2">
+          <span data-drag-handle class="flex-shrink-0 cursor-move text-gray-300 hover:text-indigo-400 transition-colors">
+            <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 14a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" clip-rule="evenodd" />
+            </svg>
+          </span>
           <%= if @subtype == "textarea" do %>
             <textarea
               name={"#{@name}[]"}
