@@ -258,6 +258,37 @@ Hooks.Multiselect = {
     }
 }
 
+Hooks.ListEditor = {
+    mounted() {
+        this.itemsContainer = this.el.querySelector("[data-items]")
+        this.template = this.el.querySelector("[data-item-template]")
+
+        this.el.addEventListener("click", (e) => {
+            if (e.target.closest("[data-add]")) {
+                this.addItem()
+            }
+            const removeBtn = e.target.closest("[data-remove]")
+            if (removeBtn) {
+                removeBtn.closest("[data-item]").remove()
+                this.dispatchChange()
+            }
+        })
+    },
+
+    addItem() {
+        const clone = this.template.content.cloneNode(true)
+        this.itemsContainer.appendChild(clone)
+        const input = this.itemsContainer.lastElementChild.querySelector("input, textarea")
+        if (input) input.focus()
+        this.dispatchChange()
+    },
+
+    dispatchChange() {
+        const input = this.el.querySelector("input[name], textarea[name]")
+        if (input) input.dispatchEvent(new Event("input", { bubbles: true }))
+    }
+}
+
 const SAFE_METHODS = ["focus", "blur", "click", "reset", "submit"]
 
 window.addEventListener("phx:js-exec", (e) => {

@@ -46,6 +46,10 @@ defmodule Okovita.FieldTypes.Base do
       @impl Okovita.FieldTypes.Behaviour
       def validate(changeset, _field_name, _options), do: changeset
       defoverridable validate: 3
+
+      @impl Okovita.FieldTypes.Behaviour
+      def list_compatible?, do: false
+      defoverridable list_compatible?: 0
     end
   end
 end

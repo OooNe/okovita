@@ -13,6 +13,9 @@ defmodule Okovita.FieldTypes.Textarea do
   def cast(_), do: :error
 
   @impl true
+  def list_compatible?, do: true
+
+  @impl true
   def validate(changeset, field_name, options) do
     changeset
     |> maybe_validate_min_length(field_name, options)

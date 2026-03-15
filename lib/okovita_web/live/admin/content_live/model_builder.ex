@@ -6,7 +6,8 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
   alias Okovita.FieldTypes.Registry
 
   @persisted_field_keys ~w(label field_type required target_model position
-                           validation_regex min_length max_length min max)
+                           validation_regex min_length max_length min max
+                           list_subtype min_items max_items)
 
   def mount(%{"id" => id}, _session, socket) do
     prefix = socket.assigns.tenant_prefix
@@ -211,7 +212,7 @@ defmodule OkovitaWeb.Admin.ContentLive.ModelBuilder do
     end
   end
 
-  @integer_attrs ~w(min_length max_length)
+  @integer_attrs ~w(min_length max_length min_items max_items)
   @number_attrs ~w(min max)
 
   defp update_field_in_socket(socket, id, attr, value) do

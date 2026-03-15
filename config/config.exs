@@ -74,7 +74,8 @@ config :okovita, :field_types, %{
   "image_gallery" => Okovita.FieldTypes.ImageGallery,
   "rich_text" => Okovita.FieldTypes.RichText,
   "url" => Okovita.FieldTypes.Url,
-  "content" => Okovita.FieldTypes.Content
+  "content" => Okovita.FieldTypes.Content,
+  "list" => Okovita.FieldTypes.List
 }
 
 config :ckeditor5_phoenix,

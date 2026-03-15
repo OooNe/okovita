@@ -105,12 +105,21 @@ defmodule Okovita.FieldTypes.Behaviour do
   """
   @callback default_value() :: any()
 
+  @doc """
+  Returns `true` if this field type can be used as a subtype inside a `list` field.
+
+  Implement and return `true` for any string-like or composite type whose values
+  can be stored as individual list items. Defaults to `false`.
+  """
+  @callback list_compatible?() :: boolean()
+
   @optional_callbacks [
     editor_component: 0,
     configurator_component: 0,
     upload_config: 0,
     form_assigns: 3,
     merge_validate_params: 3,
-    default_value: 0
+    default_value: 0,
+    list_compatible?: 0
   ]
 end

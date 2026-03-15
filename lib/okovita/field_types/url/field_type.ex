@@ -13,6 +13,9 @@ defmodule Okovita.FieldTypes.Url do
   def cast(_), do: :error
 
   @impl true
+  def list_compatible?, do: true
+
+  @impl true
   def validate(changeset, field_name, options) do
     changeset
     |> validate_format(field_name, ~r/^https?:\/\//, message: "must be a valid URL")

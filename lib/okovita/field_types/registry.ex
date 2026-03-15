@@ -15,6 +15,27 @@ defmodule Okovita.FieldTypes.Registry do
   end
 
   @doc """
+  Returns the sorted list of type names whose modules declare `list_compatible?/0` as `true`.
+  Used to populate the subtype selector in the `list` field configurator.
+
+  ## Example
+
+      iex> Okovita.FieldTypes.Registry.list_compatible_types()
+      ["text", "textarea", "url"]
+  """
+  @spec list_compatible_types() :: [String.t()]
+  def list_compatible_types do
+    Agent.get(__MODULE__, & &1)
+    |> Enum.filter(fn {_name, module} ->
+      Code.ensure_loaded?(module) &&
+        function_exported?(module, :list_compatible?, 0) &&
+        module.list_compatible?()
+    end)
+    |> Enum.map(fn {name, _module} -> name end)
+    |> Enum.sort()
+  end
+
+  @doc """
   Returns the module for the given field type name.
   Raises `ArgumentError` if the type is not registered.
 

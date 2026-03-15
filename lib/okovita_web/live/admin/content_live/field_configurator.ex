@@ -15,6 +15,7 @@ defmodule OkovitaWeb.Admin.ContentLive.FieldConfigurator do
   @regex_types ~w(text textarea url)
   @numeric_types ~w(integer number)
   @date_types ~w(date datetime)
+  @list_types ~w(list)
 
   @doc """
   Renders the standard field configuration UI plus any specific configurators
@@ -30,6 +31,7 @@ defmodule OkovitaWeb.Admin.ContentLive.FieldConfigurator do
       |> assign(:is_regex_type, ft in @regex_types)
       |> assign(:is_numeric_type, ft in @numeric_types)
       |> assign(:is_date_type, ft in @date_types)
+      |> assign(:is_list_type, ft in @list_types)
       |> assign(:has_rules?, has_rules?(assigns.field, assigns.model))
 
     ~H"""
@@ -135,13 +137,41 @@ defmodule OkovitaWeb.Admin.ContentLive.FieldConfigurator do
                    phx-blur="update-field" phx-value-id={@field["id"]} phx-value-attr="validation_regex"
                    placeholder="e.g. ^[A-Z]{2}-\\d{4}$" />
           <% end %>
+
+          <!-- Min/Max Items + per-item validation: list -->
+          <%= if @is_list_type do %>
+            <div class="grid grid-cols-2 gap-4">
+              <.input type="number" name={"fields[#{@field["id"]}][min_items]"}
+                     value={@field["min_items"]} label="Min items"
+                     phx-blur="update-field" phx-value-id={@field["id"]} phx-value-attr="min_items"
+                     placeholder="e.g. 1" min="0" />
+              <.input type="number" name={"fields[#{@field["id"]}][max_items]"}
+                     value={@field["max_items"]} label="Max items"
+                     phx-blur="update-field" phx-value-id={@field["id"]} phx-value-attr="max_items"
+                     placeholder="e.g. 10" min="0" />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <.input type="number" name={"fields[#{@field["id"]}][min_length]"}
+                     value={@field["min_length"]} label="Min item length"
+                     phx-blur="update-field" phx-value-id={@field["id"]} phx-value-attr="min_length"
+                     placeholder="e.g. 2" min="0" />
+              <.input type="number" name={"fields[#{@field["id"]}][max_length]"}
+                     value={@field["max_length"]} label="Max item length"
+                     phx-blur="update-field" phx-value-id={@field["id"]} phx-value-attr="max_length"
+                     placeholder="e.g. 100" min="0" />
+            </div>
+            <.input type="text" name={"fields[#{@field["id"]}][validation_regex]"}
+                   value={@field["validation_regex"]} label="Item validation regex"
+                   phx-blur="update-field" phx-value-id={@field["id"]} phx-value-attr="validation_regex"
+                   placeholder="e.g. ^[A-Z]{2}-\\d{4}$" />
+          <% end %>
         </div>
       </div>
     </div>
     """
   end
 
-  @validation_keys ~w(required validation_regex min_length max_length min max)
+  @validation_keys ~w(required validation_regex min_length max_length min max min_items max_items)
   defp has_rules?(_field, nil), do: false
 
   defp has_rules?(field, model) do
