@@ -52,4 +52,7 @@ npm-debug.log
 # Agent test scripts
 .agent_tests/
 
+# Local importers / scrapers
+/importes/
+
 .idea
