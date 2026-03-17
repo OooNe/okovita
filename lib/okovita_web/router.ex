@@ -93,6 +93,14 @@ defmodule OkovitaWeb.Router do
     end
   end
 
+  # ── Public API Docs ───────────────────────────────────────────────
+
+  scope "/api/v1", OkovitaWeb.Transports.REST.Controllers do
+    pipe_through [:browser]
+
+    get "/tenants/:tenant_slug/docs", PublicDocsController, :show
+  end
+
   # ── REST API ──────────────────────────────────────────────────────
 
   # Super admin API — no tenant plug required
@@ -104,6 +112,9 @@ defmodule OkovitaWeb.Router do
     post "/tenants", TenantController, :create
     put "/tenants/:id/suspend", TenantController, :suspend
     delete "/tenants/:id", TenantController, :delete
+
+    # Public OpenAPI spec per tenant — no API key required
+    get "/tenants/:tenant_slug/openapi.json", PublicOpenAPIController, :show
   end
 
   # Tenant-scoped API — requires x-api-key header
