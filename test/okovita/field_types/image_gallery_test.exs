@@ -3,9 +3,9 @@ defmodule Okovita.FieldTypes.ImageGalleryTest do
 
   alias Okovita.FieldTypes.ImageGallery
 
-  describe "primitive_type/0" do
+  describe "value_type/0" do
     test "returns {:array, :map}" do
-      assert {:array, :map} = ImageGallery.primitive_type()
+      assert {:array, :map} = ImageGallery.value_type()
     end
   end
 

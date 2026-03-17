@@ -29,7 +29,7 @@ defmodule Okovita.FieldTypes.RelationMany do
   @uuid_regex ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   @impl true
-  def primitive_type, do: {:array, :string}
+  def value_type, do: {:array, :string}
 
   @impl true
   def cast(nil), do: {:ok, []}

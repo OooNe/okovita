@@ -37,7 +37,8 @@ defmodule Okovita.Content.DynamicChangeset do
       fields
       |> Enum.into(%{}, fn {field_name, field_def} ->
         type_module = Registry.get!(field_def["field_type"])
-        {String.to_atom(field_name), type_module.primitive_type()}
+        value_type = resolve_value_type(type_module, field_def)
+        {String.to_atom(field_name), value_type}
       end)
 
     field_atoms = Map.keys(types)
@@ -81,7 +82,8 @@ defmodule Okovita.Content.DynamicChangeset do
       fields
       |> Enum.into(%{}, fn {field_name, field_def} ->
         type_module = Registry.get!(field_def["field_type"])
-        {String.to_atom(field_name), type_module.primitive_type()}
+        value_type = resolve_value_type(type_module, field_def)
+        {String.to_atom(field_name), value_type}
       end)
 
     field_atoms = Map.keys(types)
@@ -101,5 +103,15 @@ defmodule Okovita.Content.DynamicChangeset do
       type_module = Registry.get!(field_def["field_type"])
       type_module.validate(acc, String.to_atom(field_name), field_def)
     end)
+  end
+
+  # ── Private ─────────────────────────────────────────────────────────────────
+
+  defp resolve_value_type(type_module, field_def) do
+    if function_exported?(type_module, :value_type, 1) do
+      type_module.value_type(field_def)
+    else
+      type_module.value_type()
+    end
   end
 end

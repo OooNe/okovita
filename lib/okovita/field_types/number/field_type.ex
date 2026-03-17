@@ -5,7 +5,7 @@ defmodule Okovita.FieldTypes.Number do
   import Ecto.Changeset
 
   @impl true
-  def primitive_type, do: :float
+  def value_type, do: :float
 
   @impl true
   def cast(value) when is_float(value), do: {:ok, value}

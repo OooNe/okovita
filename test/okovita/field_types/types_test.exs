@@ -8,8 +8,8 @@ defmodule Okovita.FieldTypes.TypesTest do
   # ── Text ──────────────────────────────────────────────────────────
 
   describe "Text" do
-    test "primitive_type is :string" do
-      assert Text.primitive_type() == :string
+    test "value_type is :string" do
+      assert Text.value_type() == :string
     end
 
     test "casts valid strings" do
@@ -50,8 +50,8 @@ defmodule Okovita.FieldTypes.TypesTest do
   # ── Textarea ──────────────────────────────────────────────────────
 
   describe "Textarea" do
-    test "primitive_type is :string" do
-      assert Textarea.primitive_type() == :string
+    test "value_type is :string" do
+      assert Textarea.value_type() == :string
     end
 
     test "casts and validates like Text" do
@@ -67,8 +67,8 @@ defmodule Okovita.FieldTypes.TypesTest do
   # ── Number ────────────────────────────────────────────────────────
 
   describe "Number" do
-    test "primitive_type is :float" do
-      assert Number.primitive_type() == :float
+    test "value_type is :float" do
+      assert Number.value_type() == :float
     end
 
     test "casts floats, integers, and numeric strings" do
@@ -103,8 +103,8 @@ defmodule Okovita.FieldTypes.TypesTest do
   # ── Integer ───────────────────────────────────────────────────────
 
   describe "Integer" do
-    test "primitive_type is :integer" do
-      assert IntegerType.primitive_type() == :integer
+    test "value_type is :integer" do
+      assert IntegerType.value_type() == :integer
     end
 
     test "casts integers, floats, and numeric strings" do
@@ -131,8 +131,8 @@ defmodule Okovita.FieldTypes.TypesTest do
   # ── Boolean ───────────────────────────────────────────────────────
 
   describe "Boolean" do
-    test "primitive_type is :boolean" do
-      assert Boolean.primitive_type() == :boolean
+    test "value_type is :boolean" do
+      assert Boolean.value_type() == :boolean
     end
 
     test "casts booleans, strings, and integers" do
@@ -162,8 +162,8 @@ defmodule Okovita.FieldTypes.TypesTest do
   # ── Enum ──────────────────────────────────────────────────────────
 
   describe "Enum" do
-    test "primitive_type is :string" do
-      assert EnumType.primitive_type() == :string
+    test "value_type is :string" do
+      assert EnumType.value_type() == :string
     end
 
     test "casts strings" do
@@ -198,8 +198,8 @@ defmodule Okovita.FieldTypes.TypesTest do
   # ── Date ──────────────────────────────────────────────────────────
 
   describe "Date" do
-    test "primitive_type is :date" do
-      assert Date.primitive_type() == :date
+    test "value_type is :date" do
+      assert Date.value_type() == :date
     end
 
     test "casts ISO 8601 strings and Date structs" do
@@ -217,8 +217,8 @@ defmodule Okovita.FieldTypes.TypesTest do
   # ── Datetime ──────────────────────────────────────────────────────
 
   describe "Datetime" do
-    test "primitive_type is :utc_datetime" do
-      assert Datetime.primitive_type() == :utc_datetime
+    test "value_type is :utc_datetime" do
+      assert Datetime.value_type() == :utc_datetime
     end
 
     test "casts ISO 8601 strings and DateTime structs" do

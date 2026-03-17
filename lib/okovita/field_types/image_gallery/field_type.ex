@@ -8,7 +8,7 @@ defmodule Okovita.FieldTypes.ImageGallery do
   import Ecto.Changeset
 
   @impl true
-  def primitive_type, do: {:array, :map}
+  def value_type, do: {:array, :map}
 
   @impl true
   def cast(value) when is_list(value) do

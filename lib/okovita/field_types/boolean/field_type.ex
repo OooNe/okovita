@@ -3,7 +3,7 @@ defmodule Okovita.FieldTypes.Boolean do
   use Okovita.FieldTypes.Base
 
   @impl true
-  def primitive_type, do: :boolean
+  def value_type, do: :boolean
 
   @impl true
   def cast(value) when is_boolean(value), do: {:ok, value}

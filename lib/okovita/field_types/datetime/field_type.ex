@@ -5,7 +5,7 @@ defmodule Okovita.FieldTypes.Datetime do
   import Ecto.Changeset
 
   @impl true
-  def primitive_type, do: :utc_datetime
+  def value_type, do: :utc_datetime
 
   @impl true
   def cast(%DateTime{} = value), do: {:ok, value}

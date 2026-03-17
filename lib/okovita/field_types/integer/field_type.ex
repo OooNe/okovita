@@ -5,7 +5,7 @@ defmodule Okovita.FieldTypes.Integer do
   import Ecto.Changeset
 
   @impl true
-  def primitive_type, do: :integer
+  def value_type, do: :integer
 
   @impl true
   def cast(value) when is_integer(value), do: {:ok, value}

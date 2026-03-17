@@ -3,9 +3,9 @@ defmodule Okovita.FieldTypes.ImageTest do
 
   alias Okovita.FieldTypes.Image
 
-  describe "primitive_type/0" do
+  describe "value_type/0" do
     test "returns :string" do
-      assert Image.primitive_type() == :string
+      assert Image.value_type() == :string
     end
   end
 

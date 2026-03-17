@@ -3,9 +3,9 @@ defmodule Okovita.FieldTypes.RelationTest do
 
   alias Okovita.FieldTypes.Relation
 
-  describe "primitive_type/0" do
+  describe "value_type/0" do
     test "returns :string" do
-      assert Relation.primitive_type() == :string
+      assert Relation.value_type() == :string
     end
   end
 

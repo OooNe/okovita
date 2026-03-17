@@ -33,7 +33,7 @@ defmodule Okovita.Content.Entries do
 
         # Validate data against the model's schema_definition
         case DynamicChangeset.build(model.schema_definition, data) do
-          {:ok, validated_data} ->
+        {:ok, validated_data} ->
             string_data = to_string_keyed_map(validated_data)
 
             entry_attrs = %{

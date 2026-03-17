@@ -3,9 +3,9 @@ defmodule Okovita.FieldTypes.RichTextTest do
 
   alias Okovita.FieldTypes.RichText
 
-  describe "primitive_type/0" do
+  describe "value_type/0" do
     test "returns :map" do
-      assert RichText.primitive_type() == :map
+      assert RichText.value_type() == :map
     end
   end
 

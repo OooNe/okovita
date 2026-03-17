@@ -262,12 +262,17 @@ Hooks.ListEditor = {
     mounted() {
         this.itemsContainer = this.el.querySelector("[data-items]")
         this.template = this.el.querySelector("[data-item-template]")
+        this.isUrl = this.el.dataset.subtype === "url"
+        this.fieldName = this.el.dataset.name
 
         this.sortable = new Sortable(this.itemsContainer, {
             animation: 150,
             handle: "[data-drag-handle]",
             ghostClass: "opacity-50",
-            onEnd: () => this.dispatchChange()
+            onEnd: () => {
+                if (this.isUrl) this.reindexUrlItems()
+                this.dispatchChange()
+            }
         })
 
         this.el.addEventListener("click", (e) => {
@@ -277,6 +282,7 @@ Hooks.ListEditor = {
             const removeBtn = e.target.closest("[data-remove]")
             if (removeBtn) {
                 removeBtn.closest("[data-item]").remove()
+                if (this.isUrl) this.reindexUrlItems()
                 this.dispatchChange()
             }
         })
@@ -287,11 +293,29 @@ Hooks.ListEditor = {
     },
 
     addItem() {
+        const index = this.itemsContainer.querySelectorAll("[data-item]").length
         const clone = this.template.content.cloneNode(true)
+
+        if (this.isUrl) {
+            const labelInput = clone.querySelector("[data-url-label]")
+            const urlInput = clone.querySelector("[data-url-href]")
+            if (labelInput) labelInput.name = `${this.fieldName}[${index}][label]`
+            if (urlInput) urlInput.name = `${this.fieldName}[${index}][url]`
+        }
+
         this.itemsContainer.appendChild(clone)
         const input = this.itemsContainer.lastElementChild.querySelector("input, textarea")
         if (input) input.focus()
         this.dispatchChange()
+    },
+
+    reindexUrlItems() {
+        this.itemsContainer.querySelectorAll("[data-item]").forEach((item, index) => {
+            const labelInput = item.querySelector("[data-url-label], input[name$='[label]']")
+            const urlInput = item.querySelector("[data-url-href], input[name$='[url]']")
+            if (labelInput) labelInput.name = `${this.fieldName}[${index}][label]`
+            if (urlInput) urlInput.name = `${this.fieldName}[${index}][url]`
+        })
     },
 
     dispatchChange() {

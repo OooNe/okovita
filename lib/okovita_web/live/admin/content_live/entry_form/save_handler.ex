@@ -129,6 +129,13 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm.SaveHandler do
   end
 
   defp merge_final_data(schema_definition, upload_data_mapped, params) do
+    # Apply merge_validate_params so field types can normalize params
+    # (e.g. list+url subtype converts Plug's string-indexed map to a list).
+    normalized_params =
+      Enum.reduce(schema_definition || %{}, %{}, fn {field_name, def}, acc ->
+        Registry.merge_validate_params(def["field_type"], field_name, params, acc)
+      end)
+
     Enum.into(schema_definition || %{}, %{}, fn {field_name, def} ->
       fallback =
         if Registry.targets_entry?(def["field_type"]) or
@@ -140,6 +147,9 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryForm.SaveHandler do
         cond do
           Map.has_key?(upload_data_mapped, field_name) ->
             Map.get(upload_data_mapped, field_name)
+
+          Map.has_key?(normalized_params, field_name) ->
+            Map.get(normalized_params, field_name)
 
           Map.has_key?(params, field_name) ->
             Map.get(params, field_name)

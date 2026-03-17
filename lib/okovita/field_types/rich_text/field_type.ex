@@ -5,7 +5,7 @@ defmodule Okovita.FieldTypes.RichText do
   use Okovita.FieldTypes.Base
 
   @impl true
-  def primitive_type, do: :map
+  def value_type, do: :map
 
   @impl true
   def cast(nil), do: {:ok, %{}}

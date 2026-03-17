@@ -3,7 +3,7 @@ defmodule Okovita.FieldTypes.Content do
   use Okovita.FieldTypes.Base
 
   @impl true
-  def primitive_type, do: :string
+  def value_type, do: :string
 
   @impl true
   def cast(value) when is_binary(value), do: {:ok, value}

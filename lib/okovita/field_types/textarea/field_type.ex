@@ -5,7 +5,7 @@ defmodule Okovita.FieldTypes.Textarea do
   import Ecto.Changeset
 
   @impl true
-  def primitive_type, do: :string
+  def value_type, do: :string
 
   @impl true
   def cast(value) when is_binary(value), do: {:ok, value}

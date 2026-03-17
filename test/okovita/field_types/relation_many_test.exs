@@ -6,9 +6,9 @@ defmodule Okovita.FieldTypes.RelationManyTest do
   @valid_uuid "550e8400-e29b-41d4-a716-446655440000"
   @another_uuid "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 
-  describe "primitive_type/0" do
+  describe "value_type/0" do
     test "returns {:array, :string}" do
-      assert RelationMany.primitive_type() == {:array, :string}
+      assert RelationMany.value_type() == {:array, :string}
     end
   end
 

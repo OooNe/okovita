@@ -1,6 +1,6 @@
 defmodule Okovita.FieldTypes.List do
   @moduledoc """
-  List field type. Stores an array of strings.
+  List field type. Stores an array of strings (text/textarea) or maps (url subtype).
 
   ## Configuration
 
@@ -12,9 +12,9 @@ defmodule Okovita.FieldTypes.List do
           "list_subtype" => "text",     # "text" | "textarea" | "url"
           "min_items"    => 0,
           "max_items"    => 10,
-          "min_length"   => 2,          # per-item validation
-          "max_length"   => 100,        # per-item validation
-          "validation_regex" => nil     # per-item validation
+          "min_length"   => 2,          # per-item validation (string subtypes only)
+          "max_length"   => 100,        # per-item validation (string subtypes only)
+          "validation_regex" => nil     # per-item validation (string subtypes only)
         }
       }
   """
@@ -23,7 +23,12 @@ defmodule Okovita.FieldTypes.List do
   import Ecto.Changeset
 
   @impl true
-  def primitive_type, do: {:array, :string}
+  def value_type, do: {:array, :string}
+
+  # When subtype is "url", items are %{"label" => ..., "url" => ...} maps.
+  @impl true
+  def value_type(%{"list_subtype" => "url"}), do: {:array, :map}
+  def value_type(_), do: {:array, :string}
 
   @impl true
   def cast(nil), do: {:ok, []}
@@ -35,6 +40,7 @@ defmodule Okovita.FieldTypes.List do
       |> Enum.reject(&is_nil/1)
       |> Enum.map(fn
         s when is_binary(s) -> String.trim(s)
+        m when is_map(m) -> m
         _ -> nil
       end)
       |> Enum.reject(&(&1 == "" or is_nil(&1)))
@@ -62,17 +68,36 @@ defmodule Okovita.FieldTypes.List do
 
   @impl true
   def merge_validate_params(field_name, params, current_data) do
-    if Map.has_key?(params, field_name) do
-      Map.put(current_data, field_name, Map.get(params, field_name, []))
-    else
-      current_data
+    case Map.get(params, field_name) do
+      # URL subtype: Plug produces a string-indexed map like %{"0" => %{...}, "1" => %{...}}
+      value when is_map(value) ->
+        items =
+          value
+          |> Enum.sort_by(fn {k, _} -> String.to_integer(k) end)
+          |> Enum.map(fn {_, v} -> v end)
+          |> Enum.reject(&url_item_empty?/1)
+
+        Map.put(current_data, field_name, items)
+
+      # Text/textarea subtype: plain list
+      value when is_list(value) ->
+        cleaned = Enum.reject(value, &(&1 == "" or is_nil(&1)))
+        Map.put(current_data, field_name, cleaned)
+
+      nil ->
+        current_data
     end
   end
 
   @impl true
   def default_value, do: []
 
-  # --- private ---
+  # ── Private ─────────────────────────────────────────────────────────────────
+
+  defp url_item_empty?(%{"label" => label, "url" => url}),
+    do: (label == "" or is_nil(label)) and (url == "" or is_nil(url))
+
+  defp url_item_empty?(_), do: false
 
   defp maybe_validate_min_items(changeset, field_name, options) do
     case options["min_items"] do
@@ -103,29 +128,34 @@ defmodule Okovita.FieldTypes.List do
     end)
   end
 
-  defp validate_item(item, options) do
+  # URL map items — validate the url portion only
+  defp validate_item(%{"url" => url}, _options) when is_binary(url) do
+    if url == "" or Regex.match?(~r/^https?:\/\//, url),
+      do: [],
+      else: ["must be a valid URL"]
+  end
+
+  defp validate_item(item, options) when is_binary(item) do
     []
     |> check_min_length(item, options)
     |> check_max_length(item, options)
     |> check_regex(item, options)
   end
 
+  defp validate_item(_, _), do: []
+
   defp check_min_length(errors, item, %{"min_length" => min}) when is_integer(min) do
-    if String.length(item) < min do
-      ["must be at least #{min} characters" | errors]
-    else
-      errors
-    end
+    if String.length(item) < min,
+      do: ["must be at least #{min} characters" | errors],
+      else: errors
   end
 
   defp check_min_length(errors, _item, _options), do: errors
 
   defp check_max_length(errors, item, %{"max_length" => max}) when is_integer(max) do
-    if String.length(item) > max do
-      ["must be at most #{max} characters" | errors]
-    else
-      errors
-    end
+    if String.length(item) > max,
+      do: ["must be at most #{max} characters" | errors],
+      else: errors
   end
 
   defp check_max_length(errors, _item, _options), do: errors

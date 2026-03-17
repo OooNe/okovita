@@ -3,7 +3,7 @@ defmodule Okovita.FieldTypes.Behaviour do
   Behaviour for pluggable field types.
 
   Each field type module implements three callbacks:
-  - `primitive_type/0` — the Ecto primitive used for schemaless changeset
+  - `value_type/0` — the type specification used for schemaless changeset casting
   - `cast/1` — coerce raw input to the correct type
   - `validate/3` — apply field-type-specific validations to a changeset
 
@@ -14,8 +14,13 @@ defmodule Okovita.FieldTypes.Behaviour do
   - `merge_validate_params/3` — merge form params into the current data map during validation
   """
 
-  @doc "Returns the Ecto primitive type (e.g. `:string`, `:integer`, `:float`, `:boolean`, `:date`, `:utc_datetime`)."
-  @callback primitive_type() :: atom()
+  # Returns the type specification used to cast and validate this field's value
+  # in a schemaless Ecto changeset. May be a simple atom (:string, :integer,
+  # :boolean, :date, :utc_datetime, :float, :map) or a compound tuple
+  # ({:array, :string}, {:array, :map}, etc.).
+  # Implement value_type/1 instead when the type depends on field configuration
+  # (e.g. a list whose item type varies by subtype).
+  @callback value_type() :: atom() | tuple()
 
   @doc """
   Casts a raw value to the field's primitive type.
@@ -113,6 +118,11 @@ defmodule Okovita.FieldTypes.Behaviour do
   """
   @callback list_compatible?() :: boolean()
 
+  # Optional variant of value_type/0 that receives the full field definition map.
+  # Use this when the stored type depends on configuration (e.g. list subtype).
+  # DynamicChangeset calls this in preference to value_type/0 when exported.
+  @callback value_type(field_def :: map()) :: atom() | tuple()
+
   @optional_callbacks [
     editor_component: 0,
     configurator_component: 0,
@@ -120,6 +130,7 @@ defmodule Okovita.FieldTypes.Behaviour do
     form_assigns: 3,
     merge_validate_params: 3,
     default_value: 0,
-    list_compatible?: 0
+    list_compatible?: 0,
+    value_type: 1
   ]
 end
