@@ -160,7 +160,14 @@
         </svg>
         API Docs
       </a>
-      
+
+      <a href={"/api/v1/tenants/#{@current_tenant.slug}/docs"} target="_blank" class="flex items-center text-gray-700 hover:text-black font-medium text-[15px] transition-colors mt-4">
+        <svg class="w-5 h-5 mr-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+        </svg>
+        Public API Docs
+      </a>
+
       <%= if @current_admin.role == :super_admin do %>
         <div class="h-0.5 w-[80%] bg-gray-100 mt-6 mb-6 rounded"></div>
         
