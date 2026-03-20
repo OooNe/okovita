@@ -33,7 +33,7 @@ defmodule Okovita.Content.Entries do
 
         # Validate data against the model's schema_definition
         case DynamicChangeset.build(model.schema_definition, data) do
-        {:ok, validated_data} ->
+          {:ok, validated_data} ->
             string_data = to_string_keyed_map(validated_data)
 
             entry_attrs = %{
@@ -51,6 +51,7 @@ defmodule Okovita.Content.Entries do
                 actor_id,
                 fn %{entry: entry} ->
                   populated = populate(entry, model, prefix, populate: :all)
+
                   {
                     entry.id,
                     nil,
@@ -106,6 +107,7 @@ defmodule Okovita.Content.Entries do
         case new_data do
           {:ok, validated_data} ->
             populated_before = populate(entry, model, prefix, populate: :all)
+
             before_data = %{
               slug: entry.slug,
               raw_data: entry.data,
@@ -127,6 +129,7 @@ defmodule Okovita.Content.Entries do
                 actor_id,
                 fn %{entry: updated_entry} ->
                   populated_after = populate(updated_entry, model, prefix, populate: :all)
+
                   {
                     entry.id,
                     before_data,
@@ -159,7 +162,8 @@ defmodule Okovita.Content.Entries do
   @spec restore_entry(binary(), binary(), String.t(), binary() | nil) ::
           {:ok, Entry.t()} | {:error, any()}
   def restore_entry(entry_id, record_id, prefix, actor_id \\ nil) do
-    case {get_entry(entry_id, prefix), Repo.get(Okovita.Timeline.Record, record_id, prefix: prefix)} do
+    case {get_entry(entry_id, prefix),
+          Repo.get(Okovita.Timeline.Record, record_id, prefix: prefix)} do
       {nil, _} ->
         {:error, :not_found}
 
@@ -179,6 +183,7 @@ defmodule Okovita.Content.Entries do
           case new_data do
             {:ok, validated_data} ->
               populated_before = populate(entry, entry.model, prefix, populate: :all)
+
               before_data = %{
                 slug: entry.slug,
                 raw_data: entry.data,
@@ -193,13 +198,16 @@ defmodule Okovita.Content.Entries do
 
               result =
                 Multi.new()
-                |> Multi.update(:entry, Entry.update_changeset(entry, update_attrs), prefix: prefix)
+                |> Multi.update(:entry, Entry.update_changeset(entry, update_attrs),
+                  prefix: prefix
+                )
                 |> Timeline.insert_audit(
                   "entry",
                   "restore",
                   actor_id,
                   fn %{entry: updated_entry} ->
                     populated_after = populate(updated_entry, entry.model, prefix, populate: :all)
+
                     {
                       entry.id,
                       before_data,
@@ -237,6 +245,7 @@ defmodule Okovita.Content.Entries do
 
       entry ->
         populated_before = populate(entry, entry.model, prefix, populate: :all)
+
         before_data = %{
           slug: entry.slug,
           raw_data: entry.data,
@@ -351,14 +360,14 @@ defmodule Okovita.Content.Entries do
             actor_id,
             fn %{entry: updated} ->
               populated = populate(updated, entry.model, prefix, populate: :all)
+
               data_map = %{
                 slug: updated.slug,
                 raw_data: updated.data,
                 data: populated.data
               }
 
-              {entry.id,
-               Map.put(data_map, :published_at, entry.published_at),
+              {entry.id, Map.put(data_map, :published_at, entry.published_at),
                Map.put(data_map, :published_at, updated.published_at)}
             end,
             prefix: prefix
@@ -390,14 +399,14 @@ defmodule Okovita.Content.Entries do
             actor_id,
             fn %{entry: updated} ->
               populated = populate(updated, entry.model, prefix, populate: :all)
+
               data_map = %{
                 slug: updated.slug,
                 raw_data: updated.data,
                 data: populated.data
               }
 
-              {entry.id,
-               Map.put(data_map, :published_at, entry.published_at),
+              {entry.id, Map.put(data_map, :published_at, entry.published_at),
                Map.put(data_map, :published_at, updated.published_at)}
             end,
             prefix: prefix

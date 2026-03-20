@@ -69,7 +69,11 @@ defmodule Okovita.Content.MediaUploads do
       :replace ->
         with {:ok, attrs} <- Uploader.upload_binary(binary, media.file_name, content_type),
              {:ok, updated} <-
-               Content.update_media(media, %{size: attrs.size, url: attrs.url}, prefix) do
+               Content.update_media(
+                 media,
+                 %{size: attrs.size, url: attrs.url, width: attrs.width, height: attrs.height},
+                 prefix
+               ) do
           {:ok, updated}
         end
 

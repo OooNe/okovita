@@ -31,9 +31,17 @@ defmodule Okovita.Media.Uploader do
         port = if ex_aws_config[:port], do: ":#{ex_aws_config[:port]}", else: ""
 
         url = "#{scheme}#{public_host}#{port}/#{bucket}/#{file_name}"
+        {width, height} = extract_dimensions(file_binary)
 
         {:ok,
-         %{url: url, file_name: file_name, size: byte_size(file_binary), mime_type: client_type}}
+         %{
+           url: url,
+           file_name: file_name,
+           size: byte_size(file_binary),
+           mime_type: client_type,
+           width: width,
+           height: height
+         }}
 
       {:error, reason} ->
         {:error, reason}
@@ -76,11 +84,31 @@ defmodule Okovita.Media.Uploader do
         port = if ex_aws_config[:port], do: ":#{ex_aws_config[:port]}", else: ""
 
         url = "#{scheme}#{public_host}#{port}/#{bucket}/#{file_name}"
+        {width, height} = extract_dimensions(binary)
 
-        {:ok, %{url: url, file_name: file_name, size: byte_size(binary), mime_type: content_type}}
+        {:ok,
+         %{
+           url: url,
+           file_name: file_name,
+           size: byte_size(binary),
+           mime_type: content_type,
+           width: width,
+           height: height
+         }}
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp extract_dimensions(binary) do
+    case Image.from_binary(binary) do
+      {:ok, img} ->
+        {width, height, _bands} = Image.shape(img)
+        {width, height}
+
+      _ ->
+        {nil, nil}
     end
   end
 end

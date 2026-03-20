@@ -298,6 +298,14 @@ defmodule Okovita.Tenants do
     )
     """)
 
+    Repo.query!("""
+    ALTER TABLE "#{prefix}".media ADD COLUMN IF NOT EXISTS width integer;
+    """)
+
+    Repo.query!("""
+    ALTER TABLE "#{prefix}".media ADD COLUMN IF NOT EXISTS height integer;
+    """)
+
     :ok
   end
 

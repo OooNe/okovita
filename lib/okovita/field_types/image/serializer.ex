@@ -22,7 +22,9 @@ defmodule Okovita.FieldTypes.Image.Serializer do
       "url" => proxy_url(media, w: 1600),
       "original_url" => media.url,
       "file_name" => media.file_name,
-      "mime_type" => media.mime_type
+      "mime_type" => media.mime_type,
+      "width" => media.width,
+      "height" => media.height
     }
   end
 end

@@ -10,6 +10,8 @@ defmodule Okovita.Content.Media do
     field :url, :string
     field :mime_type, :string
     field :size, :integer
+    field :width, :integer
+    field :height, :integer
 
     timestamps()
   end
@@ -17,7 +19,7 @@ defmodule Okovita.Content.Media do
   @doc false
   def changeset(media, attrs) do
     media
-    |> cast(attrs, [:file_name, :url, :mime_type, :size])
+    |> cast(attrs, [:file_name, :url, :mime_type, :size, :width, :height])
     |> validate_required([:file_name, :url, :mime_type])
   end
 end

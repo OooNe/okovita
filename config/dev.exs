@@ -66,15 +66,15 @@ config :phoenix, :stacktrace_depth, 20
 # Initialize plugs at runtime for faster development compilation
 config :phoenix, :plug_init_mode, :runtime
 
-# ExAws Development Config for Localstack
+# ExAws Development Config for MinIO
 config :ex_aws,
   debug_requests: true,
-  access_key_id: "test",
-  secret_access_key: "test",
+  access_key_id: System.get_env("AWS_ACCESS_KEY_ID", "minioadmin"),
+  secret_access_key: System.get_env("AWS_SECRET_ACCESS_KEY", "minioadmin"),
   region: "us-east-1"
 
 config :ex_aws, :s3,
   scheme: "http://",
-  host: System.get_env("S3_HOST", "localstack"),
-  port: 4566,
+  host: System.get_env("S3_HOST", "minio"),
+  port: 9000,
   region: "us-east-1"

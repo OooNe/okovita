@@ -38,6 +38,8 @@ npm-debug.log
 # Docker environment
 .env
 .docker/postgres/data/
+.localstack/
+.minio/
 
 # Local file uploads volume
 /uploads/*

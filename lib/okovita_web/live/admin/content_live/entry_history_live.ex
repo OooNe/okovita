@@ -31,7 +31,9 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryHistoryLive do
           Enum.map(records, fn record ->
             can_restore? =
               if record.after do
-                raw_data = Map.get(record.after, "raw_data") || Map.get(record.after, "data") || %{}
+                raw_data =
+                  Map.get(record.after, "raw_data") || Map.get(record.after, "data") || %{}
+
                 case Okovita.Content.DynamicChangeset.build(model.schema_definition, raw_data) do
                   {:ok, _} -> true
                   {:error, _} -> false
@@ -191,7 +193,10 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryHistoryLive do
         {:noreply,
          socket
          |> put_flash(:info, "Wersja została pomyślnie przywrócona.")
-         |> push_navigate(to: "/admin/tenants/#{socket.assigns.tenant_slug}/models/#{socket.assigns.model.slug}/entries/#{entry_id}/history")}
+         |> push_navigate(
+           to:
+             "/admin/tenants/#{socket.assigns.tenant_slug}/models/#{socket.assigns.model.slug}/entries/#{entry_id}/history"
+         )}
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Wystąpił błąd podczas przywracania wersji.")}
@@ -200,20 +205,26 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryHistoryLive do
 
   defp diff_json(nil, after_data), do: diff_json(%{}, after_data)
   defp diff_json(before_data, nil), do: diff_json(before_data, %{})
+
   defp diff_json(before_data, after_data) do
-    before_lines = before_data |> sanitize_for_diff() |> Jason.encode!(pretty: true) |> String.split("\n")
-    after_lines = after_data |> sanitize_for_diff() |> Jason.encode!(pretty: true) |> String.split("\n")
+    before_lines =
+      before_data |> sanitize_for_diff() |> Jason.encode!(pretty: true) |> String.split("\n")
+
+    after_lines =
+      after_data |> sanitize_for_diff() |> Jason.encode!(pretty: true) |> String.split("\n")
+
     List.myers_difference(before_lines, after_lines)
   end
 
   defp sanitize_for_diff(data) when is_map(data) do
     # Extract the inner "data" map instead of the top-level envelope
     inner_data = Map.get(data, "data", Map.get(data, :data, %{}))
-    
+
     inner_data
     |> Map.drop(["raw_data", :raw_data])
     |> deep_clean()
   end
+
   defp sanitize_for_diff(data), do: data
 
   defp deep_clean(data) when is_map(data) do
@@ -221,6 +232,7 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryHistoryLive do
     |> Map.drop(["model", :model, "model_id", :model_id])
     |> Enum.into(%{}, fn {k, v} -> {k, deep_clean(v)} end)
   end
+
   defp deep_clean(list) when is_list(list), do: Enum.map(list, &deep_clean/1)
   defp deep_clean(other), do: other
 
@@ -229,10 +241,19 @@ defmodule OkovitaWeb.Admin.ContentLive.EntryHistoryLive do
     line
     |> Phoenix.HTML.html_escape()
     |> Phoenix.HTML.safe_to_string()
-    |> String.replace(~r/(&quot;(?:\\.|.)*?&quot;)(?=:)/, "<span class=\"text-indigo-700 font-medium\">\\1</span>")
-    |> String.replace(~r/(: )(&quot;(?:\\.|.)*?&quot;)/, "\\1<span class=\"text-emerald-700\">\\2</span>")
+    |> String.replace(
+      ~r/(&quot;(?:\\.|.)*?&quot;)(?=:)/,
+      "<span class=\"text-indigo-700 font-medium\">\\1</span>"
+    )
+    |> String.replace(
+      ~r/(: )(&quot;(?:\\.|.)*?&quot;)/,
+      "\\1<span class=\"text-emerald-700\">\\2</span>"
+    )
     |> String.replace(~r/(: )(true|false)\b/, "\\1<span class=\"text-purple-700\">\\2</span>")
     |> String.replace(~r/(: )(null)\b/, "\\1<span class=\"text-gray-400 italic\">\\2</span>")
-    |> String.replace(~r/(: )(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/, "\\1<span class=\"text-amber-700\">\\2</span>")
+    |> String.replace(
+      ~r/(: )(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/,
+      "\\1<span class=\"text-amber-700\">\\2</span>"
+    )
   end
 end
