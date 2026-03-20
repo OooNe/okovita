@@ -175,6 +175,7 @@ defmodule Okovita.OpenAPI.Generator do
         else
           paths
           |> Map.put("/models/#{model.slug}/entries", collection_operations(model))
+          |> Map.put("/models/#{model.slug}/entries/by-slug/{slug}", item_by_slug_operations(model))
           |> Map.put("/models/#{model.slug}/entries/{id}", item_operations(model))
         end
 
@@ -361,6 +362,59 @@ defmodule Okovita.OpenAPI.Generator do
                 "schema" => %{"$ref" => "#/components/schemas/Error"}
               }
             }
+          }
+        }
+      }
+    }
+  end
+
+  defp item_by_slug_operations(model) do
+    get_parameters = [
+      %{
+        "name" => "slug",
+        "in" => "path",
+        "required" => true,
+        "description" => "Entry slug (human-readable identifier)",
+        "schema" => %{"type" => "string", "pattern" => "^[a-z0-9][a-z0-9_-]*$"}
+      },
+      %{
+        "name" => "withMetadata",
+        "in" => "query",
+        "description" => "Include system metadata wrapper in response",
+        "required" => false,
+        "schema" => %{"type" => "boolean", "default" => false}
+      },
+      %{
+        "name" => "populate",
+        "in" => "query",
+        "description" => "Comma-separated list of relation keys to populate, or * for all",
+        "required" => false,
+        "schema" => %{"type" => "string"}
+      }
+    ]
+
+    %{
+      "get" => %{
+        "tags" => [model.name],
+        "summary" => "Get entry by slug for #{model.name}",
+        "description" => "Retrieve an entry using its human-readable slug instead of UUID. Useful for creating clean, SEO-friendly URLs.",
+        "parameters" => get_parameters,
+        "responses" => %{
+          "200" => %{
+            "description" => "Entry data",
+            "content" => %{
+              "application/json" => %{
+                "schema" => %{
+                  "oneOf" => [
+                    %{"$ref" => "#/components/schemas/#{model.slug}_Data"},
+                    %{"$ref" => "#/components/schemas/#{model.slug}_Entry"}
+                  ]
+                }
+              }
+            }
+          },
+          "404" => %{
+            "description" => "Entry not found with the provided slug in this model"
           }
         }
       }

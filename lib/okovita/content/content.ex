@@ -47,6 +47,7 @@ defmodule Okovita.Content do
   defdelegate delete_entry(entry_id, prefix, actor_id \\ nil), to: Entries
   defdelegate restore_entry(entry_id, record_id, prefix, actor_id \\ nil), to: Entries
   defdelegate get_entry(id, prefix), to: Entries
+  defdelegate get_entry_by_slug(model_id, slug, prefix), to: Entries
   defdelegate list_entries(model_id, prefix), to: Entries
   defdelegate list_published_entries(model_id, prefix), to: Entries
   defdelegate publish_entry(entry_id, prefix, actor_id \\ nil), to: Entries

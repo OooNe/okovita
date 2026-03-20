@@ -279,6 +279,24 @@ defmodule Okovita.Content.Entries do
     Repo.get(Entry, id, prefix: prefix) |> Repo.preload(:model, prefix: prefix)
   end
 
+  @doc """
+  Gets an entry by slug within a model context.
+  Returns the same structure as get_entry/2 by delegating to it.
+  """
+  @spec get_entry_by_slug(binary(), String.t(), String.t()) :: Entry.t() | nil
+  def get_entry_by_slug(model_id, slug, prefix) do
+    case Repo.one(
+           from(e in Entry,
+             where: e.model_id == ^model_id and e.slug == ^slug,
+             select: e.id
+           ),
+           prefix: prefix
+         ) do
+      nil -> nil
+      entry_id -> get_entry(entry_id, prefix)
+    end
+  end
+
   @doc "Gets multiple entries by their IDs."
   def get_entries_by_ids(ids, prefix) do
     from(e in Entry, where: e.id in ^ids, preload: [:model])

@@ -37,23 +37,27 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
   def show(conn, %{"model_slug" => model_slug, "id" => id} = params) do
     prefix = conn.assigns.tenant_prefix
     opts = parse_params(params)
-    with_metadata = opts[:with_metadata]
 
     with model when not is_nil(model) <- Content.get_model_by_slug(model_slug, prefix),
-         entry when not is_nil(entry) <- Content.get_entry(id, prefix),
-         true <- !model.publishable or entry.published_at != nil do
-      populated_entry =
-        entry
-        |> Content.populate(model, prefix, opts)
-
-      json(conn, EntryFormatter.format(populated_entry, model, with_metadata))
+         entry when not is_nil(entry) <- Content.get_entry(id, prefix) do
+      render_entry(conn, model, entry, prefix, opts)
     else
       nil ->
         conn
         |> put_status(:not_found)
         |> json(%{error: %{message: "Not found"}})
+    end
+  end
 
-      false ->
+  def show_by_slug(conn, %{"model_slug" => model_slug, "slug" => slug} = params) do
+    prefix = conn.assigns.tenant_prefix
+    opts = parse_params(params)
+
+    with model when not is_nil(model) <- Content.get_model_by_slug(model_slug, prefix),
+         entry when not is_nil(entry) <- Content.get_entry_by_slug(model.id, slug, prefix) do
+      render_entry(conn, model, entry, prefix, opts)
+    else
+      nil ->
         conn
         |> put_status(:not_found)
         |> json(%{error: %{message: "Not found"}})
@@ -187,6 +191,22 @@ defmodule OkovitaWeb.Transports.REST.Controllers.EntryController do
         conn
         |> put_status(:not_found)
         |> json(%{error: %{message: "Parent entry or model not found"}})
+    end
+  end
+
+  defp render_entry(conn, model, entry, prefix, opts) do
+    with_metadata = opts[:with_metadata]
+
+    if !model.publishable or entry.published_at != nil do
+      populated_entry =
+        entry
+        |> Content.populate(model, prefix, opts)
+
+      json(conn, EntryFormatter.format(populated_entry, model, with_metadata))
+    else
+      conn
+      |> put_status(:not_found)
+      |> json(%{error: %{message: "Not found"}})
     end
   end
 

@@ -45,6 +45,12 @@ defmodule Okovita.Transports.REST do
       },
       %{
         method: :get,
+        path: "/models/:model_slug/entries/by-slug/:slug",
+        controller: EntryController,
+        action: :show_by_slug
+      },
+      %{
+        method: :get,
         path: "/models/:model_slug/entries/:id",
         controller: EntryController,
         action: :show
