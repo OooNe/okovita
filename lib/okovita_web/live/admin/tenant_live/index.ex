@@ -34,7 +34,7 @@ defmodule OkovitaWeb.Admin.TenantLive.Index do
         {:noreply, socket}
 
       tenant ->
-        Tenants.suspend_tenant(tenant)
+        Tenants.suspend_tenant(tenant.id)
         {:noreply, assign(socket, tenants: Tenants.list_tenants())}
     end
   end
@@ -45,7 +45,7 @@ defmodule OkovitaWeb.Admin.TenantLive.Index do
         {:noreply, socket}
 
       tenant ->
-        Tenants.delete_tenant(tenant)
+        Tenants.delete_tenant(tenant.id)
         {:noreply, assign(socket, tenants: Tenants.list_tenants())}
     end
   end
@@ -124,6 +124,7 @@ defmodule OkovitaWeb.Admin.TenantLive.Index do
                   <%= if tenant.status == :active do %>
                     <button phx-click={"suspend-#{tenant.id}"} data-confirm="Are you sure you want to suspend this tenant?" class="text-yellow-600 hover:text-yellow-900 transition-colors">Suspend</button>
                     <a href={"/admin/tenants/#{tenant.slug}/api-keys"} class="text-indigo-600 hover:text-indigo-900 transition-colors pl-2 border-l border-gray-300">Keys</a>
+                    <a href={"/admin/tenants/#{tenant.slug}/backups"} class="text-green-600 hover:text-green-900 transition-colors pl-2 border-l border-gray-300">Backups</a>
                     <a href={"/admin/tenants/#{tenant.slug}/models"} class="text-blue-600 hover:text-blue-900 transition-colors pl-2 border-l border-gray-300">Content</a>
                   <% end %>
                   <button phx-click={"delete-#{tenant.id}"} data-confirm="Are you sure you want to delete this tenant?" class="text-red-500 hover:text-red-700 transition-colors pl-2 border-l border-red-200">Delete</button>

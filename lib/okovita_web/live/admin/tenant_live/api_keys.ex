@@ -4,27 +4,19 @@ defmodule OkovitaWeb.Admin.TenantLive.ApiKeys do
 
   alias Okovita.Tenants
 
-  on_mount {OkovitaWeb.LiveAuth, :require_super_admin}
+  def mount(_params, _session, socket) do
+    # current_tenant is set by live_session :tenant hooks
+    tenant = socket.assigns.current_tenant
+    api_keys = Tenants.list_api_keys(tenant.id)
 
-  def mount(%{"tenant_slug" => slug}, _session, socket) do
-    case Tenants.get_tenant_by_slug(slug) do
-      nil ->
-        {:ok,
-         socket
-         |> put_flash(:error, "Tenant not found")
-         |> redirect(to: "/admin/tenants")}
-
-      tenant ->
-        api_keys = Tenants.list_api_keys(tenant.id)
-
-        {:ok,
-         assign(socket,
-           tenant: tenant,
-           api_keys: api_keys,
-           show_generate: false,
-           new_raw_key: nil
-         )}
-    end
+    {:ok,
+     socket
+     |> assign(
+       api_keys: api_keys,
+       show_generate: false,
+       new_raw_key: nil
+     )
+     |> assign(:active_nav, "api-keys")}
   end
 
   def handle_event("toggle-generate", _params, socket) do
@@ -32,7 +24,7 @@ defmodule OkovitaWeb.Admin.TenantLive.ApiKeys do
   end
 
   def handle_event("generate-key", %{"name" => name}, socket) do
-    tenant_id = socket.assigns.tenant.id
+    tenant_id = socket.assigns.current_tenant.id
 
     case Tenants.create_api_key(tenant_id, name) do
       {:ok, %{raw_api_key: raw_api_key}} ->
@@ -49,7 +41,7 @@ defmodule OkovitaWeb.Admin.TenantLive.ApiKeys do
   end
 
   def handle_event("delete-key-" <> key_id, _params, socket) do
-    tenant_id = socket.assigns.tenant.id
+    tenant_id = socket.assigns.current_tenant.id
 
     case Tenants.delete_api_key(tenant_id, key_id) do
       {:ok, _} ->
@@ -69,8 +61,7 @@ defmodule OkovitaWeb.Admin.TenantLive.ApiKeys do
     ~H"""
     <div class="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
       <div>
-        <a href="/admin/tenants" class="text-indigo-600 hover:text-indigo-900 text-sm font-medium mb-4 inline-block transition-colors">&larr; Back to Tenants</a>
-        <h1 class="text-2xl font-bold text-gray-900">API Keys: <span class="text-indigo-600"><%= @tenant.name %></span></h1>
+        <h1 class="text-2xl font-bold text-gray-900">API Keys</h1>
         <p class="mt-2 text-sm text-gray-500">Manage authentication key permissions for this Tenant workspace.</p>
       </div>
 

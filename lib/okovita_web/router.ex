@@ -44,6 +44,13 @@ defmodule OkovitaWeb.Router do
     delete "/session", SessionController, :delete
   end
 
+  scope "/admin", OkovitaWeb do
+    pipe_through [:browser, :admin_auth]
+
+    # Backup downloads
+    get "/backups/download/:filename", BackupDownloadController, :download
+  end
+
   scope "/admin", OkovitaWeb.Admin do
     pipe_through [:browser, :admin_auth]
 
@@ -66,6 +73,7 @@ defmodule OkovitaWeb.Router do
       ] do
       scope "/tenants/:tenant_slug" do
         live "/api-keys", TenantLive.ApiKeys
+        live "/backups", BackupLive.Index
         live "/media", MediaLive.Index
         live "/models", ContentLive.ModelList
         live "/models/new", ContentLive.ModelBuilder
